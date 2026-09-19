@@ -45,6 +45,12 @@ export function getEntryById(id: string): DailyEntry | undefined {
   return entries.find((e) => e.id === id);
 }
 
+export function generateReportId(dateStr: string, dayNumber: number): string {
+  const year = dateStr ? dateStr.split('-')[0] : new Date().getFullYear().toString();
+  const paddedDay = String(dayNumber).padStart(3, '0');
+  return `SL-${year}-${paddedDay}`;
+}
+
 export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boolean } {
   const entries = getEntries();
   const existingIndex = entries.findIndex((e) => e.date === entry.date || e.id === entry.id);
@@ -63,17 +69,18 @@ export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boo
       ...entry,
       id: existing.id,
       dayNumber: existing.dayNumber,
+      reportId: existing.reportId || entry.reportId || generateReportId(existing.date, existing.dayNumber),
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
     updatedEntries = [...entries];
     updatedEntries[existingIndex] = updated;
   } else {
-    const startDate = getStoredStartDate() || entry.date;
-    const dayNumber = calculateDayNumber(startDate, entry.date);
+    const newDayNum = entries.length + 1;
     const newEntry: DailyEntry = {
       ...entry,
-      dayNumber,
+      dayNumber: newDayNum,
+      reportId: entry.reportId || generateReportId(entry.date, newDayNum),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -85,10 +92,15 @@ export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boo
   if (updatedEntries.length > 0) {
     const firstDate = updatedEntries[0].date;
     setStoredStartDate(firstDate);
-    updatedEntries = updatedEntries.map((e) => ({
-      ...e,
-      dayNumber: calculateDayNumber(firstDate, e.date),
-    }));
+    // Assign day numbers sequentially and ensure reportId exists
+    updatedEntries = updatedEntries.map((e, idx) => {
+      const dayNum = idx + 1;
+      return {
+        ...e,
+        dayNumber: dayNum,
+        reportId: e.reportId || generateReportId(e.date, dayNum),
+      };
+    });
   }
 
   try {
@@ -97,14 +109,24 @@ export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boo
     console.error('Failed to save entries to localStorage:', e);
   }
 
-  return { entry, isUpdate };
+  const finalSaved = updatedEntries.find((e) => e.date === entry.date || e.id === entry.id) || entry;
+  return { entry: finalSaved, isUpdate };
 }
 
 export function deleteEntry(id: string): void {
   const entries = getEntries();
   const filtered = entries.filter((e) => e.id !== id);
+  // Re-index remaining entries sequentially while preserving/updating reportId
+  const reindexed = filtered.map((e, idx) => {
+    const dayNum = idx + 1;
+    return {
+      ...e,
+      dayNumber: dayNum,
+      reportId: e.reportId || generateReportId(e.date, dayNum),
+    };
+  });
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reindexed));
   } catch (e) {
     console.error('Failed to delete entry from localStorage:', e);
   }
@@ -120,9 +142,7 @@ export function calculateDayNumber(startDateStr: string, targetDateStr: string):
 
 export function getNextDayNumber(): number {
   const entries = getEntries();
-  if (entries.length === 0) return 1;
-  const maxDay = Math.max(...entries.map((e) => e.dayNumber));
-  return maxDay + 1;
+  return entries.length + 1;
 }
 
 /* ========================================================================= */
@@ -238,6 +258,7 @@ export function seedSampleData(): DailyEntry[] {
     {
       id: 'sample-1',
       dayNumber: 1,
+      reportId: 'SL-2026-001',
       date: '2026-09-17',
       sleep: {
         lightsOut: '22:45',
@@ -286,6 +307,7 @@ export function seedSampleData(): DailyEntry[] {
     {
       id: 'sample-2',
       dayNumber: 2,
+      reportId: 'SL-2026-002',
       date: '2026-09-18',
       sleep: {
         lightsOut: '23:30',

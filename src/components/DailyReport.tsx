@@ -1,6 +1,6 @@
 import React from 'react';
 import { DailyEntry, CustomMetricDefinition } from '@/types/sleeplab';
-import { getCustomMetricDefinitions } from '@/lib/storage';
+import { getCustomMetricDefinitions, generateReportId } from '@/lib/storage';
 import {
   Calendar,
   Award,
@@ -30,6 +30,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
   onEditEntry,
   onNavigateToEntry,
 }) => {
+  const reportId = entry.reportId || generateReportId(entry.date, entry.dayNumber);
   const customMetricDefs = getCustomMetricDefinitions();
   const metricDefsMap = new Map<string, CustomMetricDefinition>(
     customMetricDefs.map((m) => [m.id, m])
@@ -192,6 +193,9 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               </span>
               <div className="flex items-center gap-3">
                 <span>DAY {entry.dayNumber} / 30 REPORT</span>
+                <span className="text-academic-navy font-mono font-bold bg-paper-100 border border-paper-300 px-2 py-0.5 rounded text-[11px] normal-case tracking-normal">
+                  Report ID: {reportId}
+                </span>
               </div>
             </div>
 
@@ -599,7 +603,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
 
           {/* DOCUMENT FOOTER SIGNATURE */}
           <footer className="border-t border-paper-300 pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-academic-muted gap-2">
-            <div>SleepLab N=1 Longitudinal Study · Daily Record Entry ID: {entry.id}</div>
+            <div>SleepLab N=1 Longitudinal Study · Report ID: <span className="font-semibold text-paper-900">{reportId}</span> · Entry ID: {entry.id}</div>
             <div>Preserved in localStorage · Subjective Observations</div>
           </footer>
         </article>
@@ -647,9 +651,14 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               <h1 className="text-xl font-serif font-bold text-paper-900">
                 Daily Sleep & Recovery Report
               </h1>
-              <span className="font-mono text-xs font-bold text-academic-navy">
-                Day {entry.dayNumber} / 30
-              </span>
+              <div className="text-right">
+                <div className="font-mono text-xs font-bold text-academic-navy">
+                  Day {entry.dayNumber} / 30
+                </div>
+                <div className="font-mono text-[10px] text-academic-slate font-semibold pt-0.5">
+                  Report ID: {reportId}
+                </div>
+              </div>
             </div>
             <div className="text-[11px] font-mono text-academic-slate">
               {formatDateTitle(entry.date)} ({entry.date})
@@ -869,7 +878,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
           {/* PAGE 2 HEADER BADGE */}
           <div className="flex justify-between items-center border-b border-paper-400 pb-1 text-[9px] font-mono text-academic-slate uppercase">
             <span>SLEEP LAB · RESEARCH REPORT — DAY {entry.dayNumber} ({entry.date})</span>
-            <span>PAGE 2 / 2 — USER-DEFINED ADDITIONAL TRACKING</span>
+            <span>Report ID: {reportId} · PAGE 2 / 2</span>
           </div>
 
           {/* 07 — ADDITIONAL (USER-DEFINED CUSTOM METRICS) */}
@@ -927,7 +936,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
 
           {/* PRINT DOCUMENT FOOTER SIGNATURE */}
           <footer className="border-t-2 border-paper-900 pt-3 flex justify-between items-center text-[10px] font-mono text-academic-slate">
-            <div>SleepLab N=1 Longitudinal Study · Entry ID: {entry.id}</div>
+            <div>SleepLab N=1 Longitudinal Study · Report ID: {reportId} · Entry ID: {entry.id}</div>
             <div>Subjective Observations preserved in local database · Day {entry.dayNumber} / 30</div>
           </footer>
         </div>

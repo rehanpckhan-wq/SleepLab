@@ -80,6 +80,7 @@ export interface CalculatedMetrics {
 export interface DailyEntry {
   id: string;
   dayNumber: number; // 1 to 30 (or beyond if tracked)
+  reportId?: string; // e.g. SL-2026-001
   date: string; // YYYY-MM-DD
   sleep: SleepData;
   morning: MorningData;

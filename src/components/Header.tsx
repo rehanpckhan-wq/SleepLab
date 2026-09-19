@@ -36,23 +36,23 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="bg-paper-50 border border-paper-300 rounded px-4 py-3 flex items-center gap-4">
-              <div>
-                <div className="text-[10px] uppercase font-mono tracking-wider text-academic-muted">
+            <div className="bg-paper-50 border border-paper-300 rounded px-4 py-3 min-w-[240px]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] uppercase font-mono tracking-wider text-academic-muted font-semibold">
                   Study Progress
                 </div>
-                <div className="text-xl font-mono font-bold text-academic-navy">
-                  Day {currentDayNumber} <span className="text-sm font-normal text-academic-muted">/ 30</span>
+                <div className="text-xs font-mono font-bold text-academic-navy">
+                  {Math.min(100, Math.round((totalEntriesCount / 30) * 100))}%
                 </div>
               </div>
-              <div className="h-8 w-px bg-paper-300"></div>
-              <div className="text-right">
-                <div className="text-[10px] uppercase font-mono tracking-wider text-academic-muted">
-                  Logged Days
-                </div>
-                <div className="text-lg font-mono font-semibold text-paper-900">
-                  {totalEntriesCount} <span className="text-xs text-academic-muted">entries</span>
-                </div>
+              <div className="text-xl font-mono font-bold text-academic-navy mt-0.5">
+                {totalEntriesCount} <span className="text-sm font-normal text-academic-muted">/ 30 entries</span>
+              </div>
+              <div className="w-full bg-paper-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-academic-navy h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(100, Math.round((totalEntriesCount / 30) * 100))}%` }}
+                />
               </div>
             </div>
           </div>

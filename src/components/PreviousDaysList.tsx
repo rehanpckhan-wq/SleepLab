@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DailyEntry } from '@/types/sleeplab';
-import { deleteEntry, seedSampleData } from '@/lib/storage';
+import { deleteEntry, seedSampleData, generateReportId } from '@/lib/storage';
 import { Calendar, Clock, Award, Edit3, Trash2, Database, ChevronRight, AlertTriangle, FileText } from 'lucide-react';
 
 interface PreviousDaysListProps {
@@ -104,12 +104,15 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-academic-navy text-white rounded">
                       Day {entry.dayNumber}
                     </span>
                     <span className="font-serif font-bold text-base text-paper-900">
                       — {formatDateLabel(entry.date)}
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold text-academic-slate bg-paper-100 border border-paper-300 px-2 py-0.5 rounded">
+                      Report ID: {entry.reportId || generateReportId(entry.date, entry.dayNumber)}
                     </span>
                   </div>
 
