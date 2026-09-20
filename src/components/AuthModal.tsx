@@ -84,6 +84,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           if (error.message.includes('already registered')) {
             throw new Error('This username is already registered. Please sign in instead.');
           }
+          if (error.message.toLowerCase().includes('rate limit')) {
+            throw new Error('Supabase Email Rate Limit hit. In Supabase Dashboard → Authentication → Providers → Email, turn OFF "Confirm email".');
+          }
           throw error;
         }
 
