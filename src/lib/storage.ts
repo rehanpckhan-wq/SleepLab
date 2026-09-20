@@ -1,4 +1,4 @@
-import { DailyEntry, CustomMetricDefinition, StudyConfig, StudyStatus } from '@/types/sleeplab';
+import { DailyEntry, CustomMetricDefinition, StudyConfig, StudyProtocol, StudyStatus } from '@/types/sleeplab';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const STORAGE_KEY = 'sleeplab_entries_v1';
@@ -6,6 +6,8 @@ const START_DATE_KEY = 'sleeplab_start_date_v1';
 const CUSTOM_METRICS_KEY = 'sleeplab_custom_metrics_v1';
 const MIGRATION_DONE_KEY = 'sleeplab_migrated_v1';
 const STUDY_CONFIG_KEY = 'sleeplab_study_config_v1';
+const STUDIES_LIST_KEY = 'sleeplab_studies_list_v1';
+const ACTIVE_STUDY_ID_KEY = 'sleeplab_active_study_id_v1';
 
 export function calculateEndDate(startDateStr: string, durationDays: number): string {
   try {
@@ -37,6 +39,244 @@ export function generateReportId(dateStr: string, dayNumber: number): string {
   const year = dateStr ? dateStr.split('-')[0] : new Date().getFullYear().toString();
   const paddedDay = String(dayNumber).padStart(3, '0');
   return `SL-${year}-${paddedDay}`;
+}
+
+/* ========================================================================= */
+/* MULTI-STUDY PROTOCOL MANAGEMENT                                           */
+/* ========================================================================= */
+
+export function getLocalStudies(): StudyProtocol[] {
+  const defaultStartDate = (typeof window !== 'undefined' ? localStorage.getItem(START_DATE_KEY) : null) || new Date().toISOString().split('T')[0];
+  const fallbackStudy: StudyProtocol = {
+    id: 'study-default',
+    title: 'SleepLab N=1 Longitudinal Study',
+    startDate: defaultStartDate,
+    durationDays: 30,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (typeof window === 'undefined') return [fallbackStudy];
+
+  try {
+    const raw = localStorage.getItem(STUDIES_LIST_KEY);
+    if (raw) {
+      const parsed: StudyProtocol[] = JSON.parse(raw);
+      if (parsed.length > 0) return parsed;
+    }
+
+    // Try reading legacy single study config without calling getLocalStudyConfig()
+    const legacyRaw = localStorage.getItem(STUDY_CONFIG_KEY);
+    if (legacyRaw) {
+      const legacyConfig = JSON.parse(legacyRaw);
+      const migratedStudy: StudyProtocol = {
+        id: legacyConfig.id || 'study-default',
+        title: legacyConfig.title || 'SleepLab N=1 Longitudinal Study',
+        startDate: legacyConfig.startDate || defaultStartDate,
+        durationDays: legacyConfig.durationDays || 30,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STUDIES_LIST_KEY, JSON.stringify([migratedStudy]));
+      localStorage.setItem(ACTIVE_STUDY_ID_KEY, migratedStudy.id);
+      return [migratedStudy];
+    }
+  } catch (e) {
+    console.error('Failed to parse local studies list:', e);
+  }
+
+  try {
+    localStorage.setItem(STUDIES_LIST_KEY, JSON.stringify([fallbackStudy]));
+    localStorage.setItem(ACTIVE_STUDY_ID_KEY, fallbackStudy.id);
+  } catch (e) {}
+
+  return [fallbackStudy];
+}
+
+export function getActiveStudyId(): string {
+  if (typeof window === 'undefined') return 'study-default';
+  try {
+    const savedId = localStorage.getItem(ACTIVE_STUDY_ID_KEY);
+    if (savedId) return savedId;
+  } catch (e) {}
+
+  const studies = getLocalStudies();
+  return studies[0]?.id || 'study-default';
+}
+
+export function setActiveStudyId(studyId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ACTIVE_STUDY_ID_KEY, studyId);
+  } catch (e) {
+    console.error('Failed to set active study ID:', e);
+  }
+}
+
+export function saveLocalStudy(study: StudyProtocol): StudyProtocol[] {
+  const studies = getLocalStudies();
+  const existingIdx = studies.findIndex((s) => s.id === study.id);
+
+  let updated: StudyProtocol[];
+  if (existingIdx >= 0) {
+    updated = [...studies];
+    updated[existingIdx] = { ...study, updatedAt: new Date().toISOString() };
+  } else {
+    updated = [...studies, { ...study, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STUDIES_LIST_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save study locally:', e);
+    }
+  }
+  return updated;
+}
+
+export async function fetchStudiesAsync(userId?: string | null): Promise<StudyProtocol[]> {
+  const localStudies = getLocalStudies();
+  if (!isSupabaseConfigured() || !supabase || !userId) {
+    return localStudies;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('studies')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) return localStudies;
+
+    const remoteStudies: StudyProtocol[] = data.map((row) => ({
+      id: row.id,
+      title: row.title,
+      startDate: row.start_date,
+      durationDays: row.duration_days,
+      description: row.description || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STUDIES_LIST_KEY, JSON.stringify(remoteStudies));
+      } catch (e) {}
+    }
+    return remoteStudies;
+  } catch (err) {
+    console.error('Failed to fetch studies from Supabase:', err);
+    return localStudies;
+  }
+}
+
+export async function saveStudyAsync(study: StudyProtocol, userId?: string | null): Promise<StudyProtocol> {
+  saveLocalStudy(study);
+
+  if (!isSupabaseConfigured() || !supabase || !userId) {
+    return study;
+  }
+
+  try {
+    const { error } = await supabase.from('studies').upsert({
+      id: study.id,
+      user_id: userId,
+      title: study.title,
+      start_date: study.startDate,
+      duration_days: study.durationDays,
+      description: study.description || null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    return study;
+  } catch (err) {
+    console.error('Failed to save study to Supabase:', err);
+    throw err;
+  }
+}
+
+export async function deleteStudyAsync(studyId: string, userId?: string | null): Promise<void> {
+  const studies = getLocalStudies();
+  const filtered = studies.filter((s) => s.id !== studyId);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STUDIES_LIST_KEY, JSON.stringify(filtered));
+      if (getActiveStudyId() === studyId && filtered.length > 0) {
+        setActiveStudyId(filtered[0].id);
+      }
+    } catch (e) {}
+  }
+
+  if (isSupabaseConfigured() && supabase && userId) {
+    try {
+      await supabase.from('studies').delete().eq('id', studyId).eq('user_id', userId);
+    } catch (e) {
+      console.error('Failed to delete study from Supabase:', e);
+    }
+  }
+}
+
+export async function reassignEntryStudyAsync(
+  entryId: string,
+  targetStudyId: string,
+  userId?: string | null
+): Promise<DailyEntry[]> {
+  const localEntries = getLocalEntries();
+  const updatedLocal = localEntries.map((e) => (e.id === entryId ? { ...e, studyId: targetStudyId } : e));
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLocal));
+    } catch (e) {}
+  }
+
+  if (isSupabaseConfigured() && supabase && userId) {
+    try {
+      await supabase.from('daily_entries').update({ study_id: targetStudyId }).eq('id', entryId).eq('user_id', userId);
+    } catch (e) {
+      console.error('Failed to reassign entry study in Supabase:', e);
+    }
+  }
+
+  return updatedLocal;
+}
+
+export async function autoAttachEntriesToStudyAsync(
+  studyId: string,
+  startDateStr: string,
+  endDateStr: string,
+  userId?: string | null
+): Promise<number> {
+  const localEntries = getLocalEntries();
+  let count = 0;
+
+  const updatedLocal = localEntries.map((e) => {
+    if (e.date >= startDateStr && e.date <= endDateStr) {
+      count++;
+      return { ...e, studyId };
+    }
+    return e;
+  });
+
+  if (count > 0 && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLocal));
+    } catch (e) {}
+  }
+
+  if (count > 0 && isSupabaseConfigured() && supabase && userId) {
+    try {
+      const targetEntries = updatedLocal.filter((e) => e.date >= startDateStr && e.date <= endDateStr);
+      for (const entry of targetEntries) {
+        await supabase.from('daily_entries').update({ study_id: studyId }).eq('id', entry.id).eq('user_id', userId);
+      }
+    } catch (e) {
+      console.error('Failed to auto-attach entries in Supabase:', e);
+    }
+  }
+
+  return count;
 }
 
 /* ========================================================================= */
@@ -75,90 +315,40 @@ export function calculateDayNumber(startDateStr: string, targetDateStr: string):
 }
 
 export function getLocalStudyConfig(): StudyConfig {
+  const studies = getLocalStudies();
+  const activeId = getActiveStudyId();
+  const currentStudy = studies.find((s) => s.id === activeId) || studies[0];
+  if (currentStudy) return currentStudy;
+
   const defaultStartDate = getStoredStartDate() || new Date().toISOString().split('T')[0];
-  const defaultConfig: StudyConfig = {
-    id: 'default-study',
+  return {
+    id: 'study-default',
     title: 'SleepLab N=1 Longitudinal Study',
     startDate: defaultStartDate,
     durationDays: 30,
   };
-
-  if (typeof window === 'undefined') return defaultConfig;
-  try {
-    const raw = localStorage.getItem(STUDY_CONFIG_KEY);
-    if (!raw) return defaultConfig;
-    const parsed = JSON.parse(raw);
-    return {
-      ...defaultConfig,
-      ...parsed,
-    };
-  } catch {
-    return defaultConfig;
-  }
 }
 
 export function saveLocalStudyConfig(config: StudyConfig): StudyConfig {
-  if (typeof window === 'undefined') return config;
-  try {
-    localStorage.setItem(STUDY_CONFIG_KEY, JSON.stringify(config));
-    setStoredStartDate(config.startDate);
-  } catch (e) {
-    console.error('Failed to save study config locally:', e);
-  }
+  saveLocalStudy(config);
+  setActiveStudyId(config.id);
+  setStoredStartDate(config.startDate);
   return config;
 }
 
 export async function fetchStudyConfigAsync(userId?: string | null): Promise<StudyConfig> {
-  const localConfig = getLocalStudyConfig();
-  if (!isSupabaseConfigured() || !supabase || !userId) {
-    return localConfig;
+  const studies = await fetchStudiesAsync(userId);
+  const activeId = getActiveStudyId();
+  const activeStudy = studies.find((s) => s.id === activeId) || studies[0];
+  if (activeStudy) {
+    setActiveStudyId(activeStudy.id);
+    return activeStudy;
   }
-
-  try {
-    const { data, error } = await supabase
-      .from('study_config')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error || !data) return localConfig;
-
-    const remoteConfig: StudyConfig = {
-      id: 'supabase-study',
-      title: data.title || localConfig.title,
-      startDate: data.start_date || localConfig.startDate,
-      durationDays: data.duration_days || localConfig.durationDays,
-      updatedAt: data.updated_at,
-    };
-
-    saveLocalStudyConfig(remoteConfig);
-    return remoteConfig;
-  } catch (err) {
-    console.error('Failed to fetch study config from Supabase:', err);
-    return localConfig;
-  }
+  return getLocalStudyConfig();
 }
 
 export async function saveStudyConfigAsync(config: StudyConfig, userId?: string | null): Promise<StudyConfig> {
-  saveLocalStudyConfig(config);
-  if (!isSupabaseConfigured() || !supabase || !userId) {
-    return config;
-  }
-
-  try {
-    const { error } = await supabase.from('study_config').upsert({
-      user_id: userId,
-      title: config.title,
-      start_date: config.startDate,
-      duration_days: config.durationDays,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw error;
-    return config;
-  } catch (err) {
-    console.error('Failed to save study config to Supabase:', err);
-    throw err;
-  }
+  return saveStudyAsync(config, userId);
 }
 
 export function getLocalEntries(): DailyEntry[] {
@@ -167,7 +357,15 @@ export function getLocalEntries(): DailyEntry[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const entries: DailyEntry[] = JSON.parse(raw);
-    return entries.sort((a, b) => a.date.localeCompare(b.date));
+    const defaultStudyId = getActiveStudyId();
+
+    // Auto-backfill studyId for legacy entries
+    const normalized = entries.map((e) => ({
+      ...e,
+      studyId: e.studyId || defaultStudyId,
+    }));
+
+    return normalized.sort((a, b) => a.date.localeCompare(b.date));
   } catch (err) {
     console.error('Failed to parse SleepLab entries from localStorage:', err);
     return [];
@@ -208,7 +406,6 @@ export function markLocalDataMigrated(): void {
   }
 }
 
-/* Synchronous local wrappers for backwards compatibility */
 export function getEntries(): DailyEntry[] {
   return getLocalEntries();
 }
@@ -224,6 +421,7 @@ export function getNextDayNumber(): number {
 
 export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boolean } {
   const entries = getLocalEntries();
+  const currentStudyId = entry.studyId || getActiveStudyId();
   const existingIndex = entries.findIndex((e) => e.date === entry.date || e.id === entry.id);
 
   if (!getStoredStartDate()) {
@@ -239,6 +437,7 @@ export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boo
     const updated: DailyEntry = {
       ...entry,
       id: existing.id,
+      studyId: currentStudyId,
       dayNumber: existing.dayNumber,
       reportId: existing.reportId || entry.reportId || generateReportId(existing.date, existing.dayNumber),
       createdAt: existing.createdAt,
@@ -250,6 +449,7 @@ export function saveEntry(entry: DailyEntry): { entry: DailyEntry; isUpdate: boo
     const newDayNum = entries.length + 1;
     const newEntry: DailyEntry = {
       ...entry,
+      studyId: currentStudyId,
       dayNumber: newDayNum,
       reportId: entry.reportId || generateReportId(entry.date, newDayNum),
       createdAt: new Date().toISOString(),
@@ -390,7 +590,6 @@ export function deleteCustomMetricDefinition(id: string): void {
     console.error('Failed to delete custom metric definition:', e);
   }
 
-  // Cascade deletion across local daily entries
   const entries = getLocalEntries();
   let modified = false;
   const cleanedEntries = entries.map((entry) => {
@@ -416,10 +615,10 @@ export function deleteCustomMetricDefinition(id: string): void {
 /* SUPABASE ASYNC PERSISTENCE LAYER                                         */
 /* ========================================================================= */
 
-/* Conversion Mappers */
 function dbToDailyEntry(row: any): DailyEntry {
   return {
     id: row.id,
+    studyId: row.study_id || 'study-default',
     dayNumber: row.day_number,
     reportId: row.report_id || generateReportId(row.date, row.day_number),
     date: row.date,
@@ -440,6 +639,7 @@ function dailyEntryToDb(entry: DailyEntry, userId: string): any {
   return {
     id: entry.id,
     user_id: userId,
+    study_id: entry.studyId || getActiveStudyId(),
     day_number: entry.dayNumber,
     report_id: entry.reportId || generateReportId(entry.date, entry.dayNumber),
     date: entry.date,
@@ -483,7 +683,6 @@ function customMetricDefToDb(def: CustomMetricDefinition, userId: string): any {
   };
 }
 
-/* Async Fetch Entries */
 export async function fetchEntriesAsync(userId?: string | null): Promise<DailyEntry[]> {
   if (!isSupabaseConfigured() || !supabase || !userId) {
     return getLocalEntries();
@@ -505,7 +704,6 @@ export async function fetchEntriesAsync(userId?: string | null): Promise<DailyEn
   }
 }
 
-/* Async Fetch Custom Metrics */
 export async function fetchCustomMetricDefinitionsAsync(userId?: string | null): Promise<CustomMetricDefinition[]> {
   if (!isSupabaseConfigured() || !supabase || !userId) {
     return getLocalCustomMetricDefinitions();
@@ -533,12 +731,10 @@ export async function fetchCustomMetricDefinitionsAsync(userId?: string | null):
   }
 }
 
-/* Async Save Entry */
 export async function saveEntryAsync(
   entry: DailyEntry,
   userId?: string | null
 ): Promise<{ entry: DailyEntry; isUpdate: boolean }> {
-  // Always mirror write to local storage first for offline resiliency
   const localRes = saveEntry(entry);
 
   if (!isSupabaseConfigured() || !supabase || !userId) {
@@ -546,7 +742,6 @@ export async function saveEntryAsync(
   }
 
   try {
-    // Fetch all current entries from DB to accurately update day numbering
     const currentEntries = await fetchEntriesAsync(userId);
     const existingIndex = currentEntries.findIndex((e) => e.date === entry.date || e.id === entry.id);
 
@@ -559,6 +754,7 @@ export async function saveEntryAsync(
       const updated: DailyEntry = {
         ...entry,
         id: existing.id,
+        studyId: entry.studyId || existing.studyId || getActiveStudyId(),
         dayNumber: existing.dayNumber,
         reportId: existing.reportId || entry.reportId || generateReportId(existing.date, existing.dayNumber),
         createdAt: existing.createdAt,
@@ -570,6 +766,7 @@ export async function saveEntryAsync(
       const newDayNum = currentEntries.length + 1;
       const newEntry: DailyEntry = {
         ...entry,
+        studyId: entry.studyId || getActiveStudyId(),
         dayNumber: newDayNum,
         reportId: entry.reportId || generateReportId(entry.date, newDayNum),
         createdAt: new Date().toISOString(),
@@ -580,7 +777,6 @@ export async function saveEntryAsync(
 
     updatedEntries.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Re-index day numbers sequentially
     const reindexedRows = updatedEntries.map((e, idx) => {
       const dayNum = idx + 1;
       const finalEntry: DailyEntry = {
@@ -602,7 +798,6 @@ export async function saveEntryAsync(
   }
 }
 
-/* Async Delete Entry */
 export async function deleteEntryAsync(id: string, userId?: string | null): Promise<void> {
   deleteEntry(id);
 
@@ -614,7 +809,6 @@ export async function deleteEntryAsync(id: string, userId?: string | null): Prom
     const { error: deleteErr } = await supabase.from('daily_entries').delete().eq('id', id).eq('user_id', userId);
     if (deleteErr) throw deleteErr;
 
-    // Re-index remaining DB entries
     const remaining = await fetchEntriesAsync(userId);
     if (remaining.length > 0) {
       const reindexedRows = remaining.map((e, idx) => {
@@ -634,7 +828,6 @@ export async function deleteEntryAsync(id: string, userId?: string | null): Prom
   }
 }
 
-/* Async Save Custom Metric Definition */
 export async function saveCustomMetricDefinitionAsync(
   metric: CustomMetricDefinition,
   userId?: string | null
@@ -656,7 +849,6 @@ export async function saveCustomMetricDefinitionAsync(
   }
 }
 
-/* Async Archive Custom Metric */
 export async function archiveCustomMetricAsync(id: string, userId?: string | null): Promise<void> {
   archiveCustomMetric(id);
   if (!isSupabaseConfigured() || !supabase || !userId) return;
@@ -673,7 +865,6 @@ export async function archiveCustomMetricAsync(id: string, userId?: string | nul
   }
 }
 
-/* Async Restore Custom Metric */
 export async function restoreCustomMetricAsync(id: string, userId?: string | null): Promise<void> {
   restoreCustomMetric(id);
   if (!isSupabaseConfigured() || !supabase || !userId) return;
@@ -690,7 +881,6 @@ export async function restoreCustomMetricAsync(id: string, userId?: string | nul
   }
 }
 
-/* Async Reorder Custom Metrics */
 export async function reorderCustomMetricsAsync(orderedIds: string[], userId?: string | null): Promise<void> {
   reorderCustomMetrics(orderedIds);
   if (!isSupabaseConfigured() || !supabase || !userId) return;
@@ -717,7 +907,6 @@ export async function reorderCustomMetricsAsync(orderedIds: string[], userId?: s
   }
 }
 
-/* Async Delete Custom Metric Definition */
 export async function deleteCustomMetricDefinitionAsync(id: string, userId?: string | null): Promise<void> {
   deleteCustomMetricDefinition(id);
   if (!isSupabaseConfigured() || !supabase || !userId) return;
@@ -726,7 +915,6 @@ export async function deleteCustomMetricDefinitionAsync(id: string, userId?: str
     const { error } = await supabase.from('custom_metric_definitions').delete().eq('id', id).eq('user_id', userId);
     if (error) throw error;
 
-    // Cascade cleanup: remove the metric key from all user entries in Supabase
     const userEntries = await fetchEntriesAsync(userId);
     let modified = false;
     const cleanedRows = userEntries.map((entry) => {
@@ -749,10 +937,6 @@ export async function deleteCustomMetricDefinitionAsync(id: string, userId?: str
   }
 }
 
-/* ========================================================================= */
-/* LOCAL STORAGE TO SUPABASE MIGRATION UTILITY                              */
-/* ========================================================================= */
-
 export async function migrateLocalStorageToSupabaseAsync(userId: string): Promise<{ entriesMigrated: number; metricsMigrated: number }> {
   if (!isSupabaseConfigured() || !supabase || !userId) {
     throw new Error('Supabase client is not configured or user is not logged in.');
@@ -760,11 +944,24 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
 
   const localEntries = getLocalEntries();
   const localMetrics = getLocalCustomMetricDefinitions();
+  const localStudies = getLocalStudies();
 
   let entriesMigrated = 0;
   let metricsMigrated = 0;
 
-  // 1. Upload Custom Metrics first
+  if (localStudies.length > 0) {
+    const studyRows = localStudies.map((s) => ({
+      id: s.id,
+      user_id: userId,
+      title: s.title,
+      start_date: s.startDate,
+      duration_days: s.durationDays,
+      description: s.description || null,
+      updated_at: new Date().toISOString(),
+    }));
+    await supabase.from('studies').upsert(studyRows);
+  }
+
   if (localMetrics.length > 0) {
     const metricRows = localMetrics.map((m) => customMetricDefToDb(m, userId));
     const { error: metricErr } = await supabase.from('custom_metric_definitions').upsert(metricRows);
@@ -772,7 +969,6 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
     metricsMigrated = localMetrics.length;
   }
 
-  // 2. Upload Daily Entries
   if (localEntries.length > 0) {
     const entryRows = localEntries.map((e) => dailyEntryToDb(e, userId));
     const { error: entryErr } = await supabase.from('daily_entries').upsert(entryRows, { onConflict: 'user_id, date' });
@@ -780,7 +976,6 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
     entriesMigrated = localEntries.length;
   }
 
-  // Mark local migration done without destroying local data
   markLocalDataMigrated();
 
   return { entriesMigrated, metricsMigrated };
@@ -790,6 +985,7 @@ export function seedSampleData(): DailyEntry[] {
   const sampleEntries: DailyEntry[] = [
     {
       id: 'sample-1',
+      studyId: 'study-default',
       dayNumber: 1,
       reportId: 'SL-2026-001',
       date: '2026-09-17',
@@ -839,6 +1035,7 @@ export function seedSampleData(): DailyEntry[] {
     },
     {
       id: 'sample-2',
+      studyId: 'study-default',
       dayNumber: 2,
       reportId: 'SL-2026-002',
       date: '2026-09-18',

@@ -79,7 +79,8 @@ export interface CalculatedMetrics {
 
 export interface DailyEntry {
   id: string;
-  dayNumber: number; // 1 to 30 (or beyond if tracked)
+  studyId?: string; // Links entry to a specific StudyProtocol
+  dayNumber: number; // 1 to durationDays
   reportId?: string; // e.g. SL-2026-001
   date: string; // YYYY-MM-DD
   sleep: SleepData;
@@ -96,10 +97,14 @@ export interface DailyEntry {
 
 export type StudyStatus = 'Upcoming' | 'Active' | 'Completed';
 
-export interface StudyConfig {
+export interface StudyProtocol {
   id: string;
   title: string;
   startDate: string; // YYYY-MM-DD
   durationDays: number;
+  description?: string;
+  createdAt?: string;
   updatedAt?: string;
 }
+
+export type StudyConfig = StudyProtocol;

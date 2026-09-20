@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DailyEntry, StudyConfig } from '@/types/sleeplab';
+import { DailyEntry, StudyConfig, StudyProtocol } from '@/types/sleeplab';
 import {
   fetchEntriesAsync,
   fetchStudyConfigAsync,
@@ -9,6 +9,10 @@ import {
   saveStudyConfigAsync,
   getLocalStudyConfig,
   hasUnmigratedLocalData,
+  fetchStudiesAsync,
+  getActiveStudyId,
+  setActiveStudyId as setStoredActiveStudyId,
+  reassignEntryStudyAsync,
 } from '@/lib/storage';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { Header } from './Header';
@@ -18,12 +22,16 @@ import { DailyReport } from './DailyReport';
 import { AuthModal } from './AuthModal';
 import { SyncBanner } from './SyncBanner';
 import { StudySettingsModal } from './StudySettingsModal';
+import { CreateStudyModal } from './CreateStudyModal';
 import { ExportDialog } from './ExportDialog';
 import { PlusCircle, ListFilter, FileText, FlaskConical } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [studyConfig, setStudyConfig] = useState<StudyConfig>(getLocalStudyConfig());
+  const [studies, setStudies] = useState<StudyProtocol[]>([]);
+  const [activeStudyId, setActiveStudyId] = useState<string>(getActiveStudyId());
+
   const [activeTab, setActiveTab] = useState<'log' | 'history' | 'report'>('log');
   const [selectedEntryToEdit, setSelectedEntryToEdit] = useState<DailyEntry | null>(null);
   const [selectedReportEntry, setSelectedReportEntry] = useState<DailyEntry | null>(null);
@@ -34,6 +42,7 @@ export const Dashboard: React.FC = () => {
   // Modal States
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isStudySettingsOpen, setIsStudySettingsOpen] = useState<boolean>(false);
+  const [isCreateStudyOpen, setIsCreateStudyOpen] = useState<boolean>(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false);
   const [showSyncBanner, setShowSyncBanner] = useState<boolean>(false);
 
@@ -46,22 +55,23 @@ export const Dashboard: React.FC = () => {
       try {
         const targetUid = uid !== undefined ? uid : userId;
         const loadedEntries = await fetchEntriesAsync(targetUid);
+        const loadedStudies = await fetchStudiesAsync(targetUid);
         const loadedConfig = await fetchStudyConfigAsync(targetUid);
         await fetchCustomMetricDefinitionsAsync(targetUid);
 
         setEntries(loadedEntries);
+        setStudies(loadedStudies);
         setStudyConfig(loadedConfig);
-        setCurrentDayNumber(loadedEntries.length + 1);
 
         if (targetUid && hasUnmigratedLocalData()) {
           setShowSyncBanner(true);
         } else {
           setShowSyncBanner(false);
         }
-        return { loadedEntries, loadedConfig };
+        return { loadedEntries, loadedStudies, loadedConfig };
       } catch (err) {
         console.error('Error fetching study data:', err);
-        return { loadedEntries: [], loadedConfig: getLocalStudyConfig() };
+        return { loadedEntries: [], loadedStudies: [], loadedConfig: getLocalStudyConfig() };
       }
     },
     [userId]
@@ -103,11 +113,48 @@ export const Dashboard: React.FC = () => {
     }
   }, []);
 
+  // Ensure activeStudy is derived accurately
+  const activeStudy: StudyProtocol =
+    studies.find((s) => s.id === activeStudyId) ||
+    (studies.length > 0 ? studies[0] : {
+      id: studyConfig.id || 'study-default',
+      title: studyConfig.title || 'SleepLab N=1 Longitudinal Study',
+      startDate: studyConfig.startDate || new Date().toISOString().split('T')[0],
+      durationDays: studyConfig.durationDays || 30,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+  // Filter entries to active study
+  const filteredEntries = entries.filter((e) => !e.studyId || e.studyId === activeStudy.id);
+
+  useEffect(() => {
+    setCurrentDayNumber(filteredEntries.length + 1);
+  }, [filteredEntries]);
+
+  const handleSelectStudy = (studyId: string) => {
+    setActiveStudyId(studyId);
+    setStoredActiveStudyId(studyId);
+  };
+
+  const handleStudyCreated = (newStudy: StudyProtocol) => {
+    setStudies((prev) => [...prev, newStudy]);
+    setActiveStudyId(newStudy.id);
+    setStoredActiveStudyId(newStudy.id);
+    refreshData(userId);
+  };
+
+  const handleReassignEntryStudy = async (entryId: string, targetStudyId: string) => {
+    await reassignEntryStudyAsync(entryId, targetStudyId, userId);
+    await refreshData(userId);
+  };
+
   const handleSavedEntry = async (savedEntry: DailyEntry) => {
+    const entryWithStudy = { ...savedEntry, studyId: activeStudy.id };
     const { loadedEntries } = await refreshData(userId);
     setSelectedEntryToEdit(null);
     const freshInstance =
-      loadedEntries.find((e) => e.id === savedEntry.id || e.date === savedEntry.date) || savedEntry;
+      loadedEntries.find((e) => e.id === savedEntry.id || e.date === savedEntry.date) || entryWithStudy;
     setSelectedReportEntry(freshInstance);
     setExportEntries(undefined);
     setActiveTab('report');
@@ -117,6 +164,7 @@ export const Dashboard: React.FC = () => {
   const handleSaveStudyConfig = async (newConfig: StudyConfig) => {
     await saveStudyConfigAsync(newConfig, userId);
     setStudyConfig(newConfig);
+    refreshData(userId);
   };
 
   const handleSignOut = async () => {
@@ -165,11 +213,11 @@ export const Dashboard: React.FC = () => {
       targetList = [selectedReportEntry];
       label = `Day ${selectedReportEntry.dayNumber}`;
     } else if (scope === 'range' && fromDay && toDay) {
-      targetList = entries.filter((e) => e.dayNumber >= fromDay && e.dayNumber <= toDay);
+      targetList = filteredEntries.filter((e) => e.dayNumber >= fromDay && e.dayNumber <= toDay);
       label = `Days ${fromDay}–${toDay}`;
     } else {
-      targetList = entries;
-      label = `Days 1–${entries.length}`;
+      targetList = filteredEntries;
+      label = `Days 1–${filteredEntries.length}`;
     }
 
     if (targetList.length > 0) {
@@ -185,25 +233,28 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Average stats calculations
-  const totalSleepMinutesSum = entries.reduce((acc, e) => acc + (e.calculatedMetrics?.totalSleepMinutes || 0), 0);
-  const avgSleepMinutes = entries.length > 0 ? Math.round(totalSleepMinutesSum / entries.length) : 0;
+  // Average stats calculations for Active Study
+  const totalSleepMinutesSum = filteredEntries.reduce((acc, e) => acc + (e.calculatedMetrics?.totalSleepMinutes || 0), 0);
+  const avgSleepMinutes = filteredEntries.length > 0 ? Math.round(totalSleepMinutesSum / filteredEntries.length) : 0;
   const avgSleepHours = Math.floor(avgSleepMinutes / 60);
   const avgSleepMinsRem = avgSleepMinutes % 60;
-  const avgSleepFormatted = entries.length > 0 ? `${avgSleepHours}h ${avgSleepMinsRem}m` : '0h 0m';
+  const avgSleepFormatted = filteredEntries.length > 0 ? `${avgSleepHours}h ${avgSleepMinsRem}m` : '0h 0m';
 
-  const recoveryScoresSum = entries.reduce((acc, e) => acc + (e.calculatedMetrics?.recoveryIndexScore || 0), 0);
-  const avgRecoveryScore = entries.length > 0 ? Math.round((recoveryScoresSum / entries.length) * 10) / 10 : 0;
+  const recoveryScoresSum = filteredEntries.reduce((acc, e) => acc + (e.calculatedMetrics?.recoveryIndexScore || 0), 0);
+  const avgRecoveryScore = filteredEntries.length > 0 ? Math.round((recoveryScoresSum / filteredEntries.length) * 10) / 10 : 0;
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] font-sans text-[var(--text-primary)] flex flex-col transition-colors duration-200">
       <Header
-        studyConfig={studyConfig}
-        currentDayNumber={currentDayNumber > studyConfig.durationDays ? studyConfig.durationDays : currentDayNumber}
-        totalEntriesCount={entries.length}
+        activeStudy={activeStudy}
+        allStudies={studies}
+        currentDayNumber={currentDayNumber > activeStudy.durationDays ? activeStudy.durationDays : currentDayNumber}
+        totalEntriesCount={filteredEntries.length}
         avgSleepFormatted={avgSleepFormatted}
         avgRecoveryScore={avgRecoveryScore}
         userEmail={userEmail}
+        onSelectStudy={handleSelectStudy}
+        onCreateNewStudy={() => setIsCreateStudyOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
         onOpenStudySettings={() => setIsStudySettingsOpen(true)}
@@ -266,7 +317,7 @@ export const Dashboard: React.FC = () => {
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] border border-transparent font-medium'
               }`}
             >
-              <ListFilter className="w-3.5 h-3.5 text-[var(--accent)]" /> Log & Trends ({entries.length})
+              <ListFilter className="w-3.5 h-3.5 text-[var(--accent)]" /> Log & Trends ({filteredEntries.length})
             </button>
           </div>
         </div>
@@ -278,15 +329,15 @@ export const Dashboard: React.FC = () => {
               <h2 className="text-2xl font-serif font-normal text-[var(--text-primary)]">
                 {selectedEntryToEdit
                   ? `Edit Record: Day ${selectedEntryToEdit.dayNumber} (${selectedEntryToEdit.date})`
-                  : 'Daily Observation Log'}
+                  : `Daily Observation Log: ${activeStudy.title}`}
               </h2>
               <p className="text-xs font-sans text-[var(--text-secondary)] mt-1 max-w-2xl">
-                Log your sleep & recovery parameters consistently. Data is synced to your account.
+                Log your sleep & recovery parameters for this active study protocol. Data is synced to your account.
               </p>
             </div>
 
             <DailyLogForm
-              key={selectedEntryToEdit ? selectedEntryToEdit.id : 'new-entry'}
+              key={selectedEntryToEdit ? selectedEntryToEdit.id : `new-entry-${activeStudy.id}`}
               initialEntry={selectedEntryToEdit}
               userId={userId}
               onSaved={handleSavedEntry}
@@ -296,8 +347,13 @@ export const Dashboard: React.FC = () => {
         ) : activeTab === 'report' && selectedReportEntry ? (
           <DailyReport
             entry={selectedReportEntry}
-            allEntries={entries}
-            studyConfig={studyConfig}
+            allEntries={filteredEntries}
+            studyConfig={{
+              id: activeStudy.id,
+              title: activeStudy.title,
+              startDate: activeStudy.startDate,
+              durationDays: activeStudy.durationDays,
+            }}
             exportEntries={exportEntries}
             exportScopeLabel={exportScopeLabel}
             onBackToHistory={() => setActiveTab('history')}
@@ -307,11 +363,19 @@ export const Dashboard: React.FC = () => {
           />
         ) : (
           <PreviousDaysList
-            entries={entries}
+            entries={filteredEntries}
+            allStudies={studies}
+            activeStudyId={activeStudy.id}
             userId={userId}
-            studyConfig={studyConfig}
+            studyConfig={{
+              id: activeStudy.id,
+              title: activeStudy.title,
+              startDate: activeStudy.startDate,
+              durationDays: activeStudy.durationDays,
+            }}
             onSelectEntry={handleSelectEntryForEdit}
             onViewReport={handleViewReport}
+            onReassignEntryStudy={handleReassignEntryStudy}
             onEntriesChanged={() => refreshData(userId)}
             onNewLogClick={handleStartNewLog}
             onOpenExportDialog={() => setIsExportDialogOpen(true)}
@@ -336,10 +400,23 @@ export const Dashboard: React.FC = () => {
         }}
       />
 
+      {/* Create New Study Protocol Modal */}
+      <CreateStudyModal
+        isOpen={isCreateStudyOpen}
+        userId={userId}
+        onClose={() => setIsCreateStudyOpen(false)}
+        onStudyCreated={handleStudyCreated}
+      />
+
       {/* Study Settings Protocol Modal */}
       <StudySettingsModal
         isOpen={isStudySettingsOpen}
-        config={studyConfig}
+        config={{
+          id: activeStudy.id,
+          title: activeStudy.title,
+          startDate: activeStudy.startDate,
+          durationDays: activeStudy.durationDays,
+        }}
         onClose={() => setIsStudySettingsOpen(false)}
         onSave={handleSaveStudyConfig}
       />
@@ -347,8 +424,13 @@ export const Dashboard: React.FC = () => {
       {/* Flexible Export PDF Dialog */}
       <ExportDialog
         isOpen={isExportDialogOpen}
-        entries={entries}
-        studyConfig={studyConfig}
+        entries={filteredEntries}
+        studyConfig={{
+          id: activeStudy.id,
+          title: activeStudy.title,
+          startDate: activeStudy.startDate,
+          durationDays: activeStudy.durationDays,
+        }}
         selectedEntry={selectedReportEntry}
         onClose={() => setIsExportDialogOpen(false)}
         onExport={handleTriggerExport}
@@ -357,10 +439,11 @@ export const Dashboard: React.FC = () => {
       {/* Editorial Footer */}
       <footer className="border-t border-[var(--border-default)] bg-[var(--canvas)] py-5 mt-auto transition-colors duration-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs font-sans text-[var(--text-tertiary)] gap-2">
-          <div>SleepLab N=1 Longitudinal Study</div>
+          <div>SleepLab N=1 Longitudinal Study Protocol ({activeStudy.title})</div>
           <div>{userId && userEmail ? `Synced with Supabase (@${userEmail.split('@')[0]})` : 'Offline / Local Persistence'}</div>
         </div>
       </footer>
     </div>
   );
 };
+
