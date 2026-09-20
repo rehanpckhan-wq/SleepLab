@@ -614,7 +614,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
           {/* DOCUMENT FOOTER SIGNATURE */}
           <footer className="border-t border-paper-300 pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-academic-muted gap-2">
             <div>SleepLab N=1 Longitudinal Study · Report ID: <span className="font-semibold text-paper-900">{reportId}</span> · Entry ID: {entry.id}</div>
-            <div>Preserved in localStorage · Subjective Observations</div>
+            <div>Subjective Research Observations</div>
           </footer>
         </article>
 

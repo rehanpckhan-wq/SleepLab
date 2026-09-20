@@ -381,7 +381,7 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
         {/* PRINT DOCUMENT FOOTER SIGNATURE */}
         <footer className="border-t-2 border-paper-900 pt-3 flex justify-between items-center text-[10px] font-mono text-academic-slate">
           <div>SleepLab N=1 Longitudinal Study · Report ID: {reportId} · Entry ID: {entry.id}</div>
-          <div>Subjective Observations preserved in local database · Day {entry.dayNumber} / {studyConfig?.durationDays || 30}</div>
+          <div>Day {entry.dayNumber} / {studyConfig?.durationDays || 30} · Subjective Observations</div>
         </footer>
       </div>
     </div>
