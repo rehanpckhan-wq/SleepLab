@@ -15,20 +15,30 @@ import {
   Sliders,
 } from 'lucide-react';
 
+import { StudyConfig } from '@/types/sleeplab';
+
 interface DailyReportProps {
   entry: DailyEntry;
   allEntries: DailyEntry[];
+  studyConfig?: StudyConfig;
+  exportEntries?: DailyEntry[];
+  exportScopeLabel?: string;
   onBackToHistory: () => void;
   onEditEntry: (entry: DailyEntry) => void;
   onNavigateToEntry: (entry: DailyEntry) => void;
+  onOpenExportDialog?: () => void;
 }
 
 export const DailyReport: React.FC<DailyReportProps> = ({
   entry,
   allEntries,
+  studyConfig,
+  exportEntries,
+  exportScopeLabel,
   onBackToHistory,
   onEditEntry,
   onNavigateToEntry,
+  onOpenExportDialog,
 }) => {
   const reportId = entry.reportId || generateReportId(entry.date, entry.dayNumber);
   const customMetricDefs = getCustomMetricDefinitions();
@@ -166,12 +176,11 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               </span>
             )}
 
-            {/* PRINT / SAVE AS PDF BUTTON */}
             <button
-              onClick={handlePrint}
+              onClick={onOpenExportDialog || handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-paper-100 hover:bg-paper-200 border border-paper-400 text-academic-navy text-xs font-mono font-semibold rounded transition-colors ml-2 shadow-sm"
             >
-              <Printer className="w-4 h-4 text-academic-accent" /> Print / Save as PDF
+              <Printer className="w-4 h-4 text-academic-accent" /> Export PDF Report
             </button>
 
             <button
@@ -618,10 +627,10 @@ export const DailyReport: React.FC<DailyReportProps> = ({
           </button>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
+              onClick={onOpenExportDialog || handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 bg-paper-100 hover:bg-paper-200 border border-paper-400 text-academic-navy text-xs font-mono font-semibold rounded transition-colors shadow-sm"
             >
-              <Printer className="w-4 h-4 text-academic-accent" /> Print / Save as PDF
+              <Printer className="w-4 h-4 text-academic-accent" /> Export PDF Report
             </button>
             <button
               onClick={() => onEditEntry(entry)}
@@ -639,13 +648,31 @@ export const DailyReport: React.FC<DailyReportProps> = ({
       {/* PAGE 2: USER-DEFINED CUSTOM ADDITIONAL METRICS (07)                       */}
       {/* ========================================================================= */}
       <div className="hidden print:block font-sans text-paper-900 space-y-4">
+        {/* MULTI-REPORT PACKAGE COVER HEADER */}
+        {exportEntries && exportEntries.length > 1 && (
+          <div className="border-b-2 border-paper-900 pb-4 mb-4">
+            <div className="flex justify-between items-center text-[9px] font-mono tracking-widest text-academic-slate uppercase">
+              <span className="font-bold text-academic-navy">SLEEP LAB RESEARCH NOTEBOOK</span>
+              <span>COMBINED RESEARCH REPORT</span>
+            </div>
+            <h1 className="text-2xl font-serif font-bold text-paper-900 mt-1">
+              {studyConfig?.title || 'SleepLab N=1 Longitudinal Study'}
+            </h1>
+            <div className="flex items-center justify-between text-[11px] font-mono text-academic-slate border-t border-b border-paper-300 py-1.5 mt-2">
+              <div>Scope: <strong className="text-paper-900">{exportScopeLabel || `Days 1–${exportEntries.length}`}</strong></div>
+              <div>Compiled: <strong className="text-paper-900">{exportEntries.length} Daily Reports</strong></div>
+              <div>Study Duration: <strong className="text-academic-navy">{studyConfig?.durationDays || 30} Days</strong></div>
+            </div>
+          </div>
+        )}
+
         {/* PAGE 1: MANDATORY EXPERIMENTAL CORE SECTIONS */}
         <div className="space-y-3.5">
           {/* PRINT DOCUMENT HEADER */}
           <header className="border-b-2 border-paper-900 pb-2 space-y-0.5">
             <div className="flex justify-between items-baseline text-[9px] font-mono uppercase tracking-widest text-academic-slate">
               <span className="font-bold">SLEEP LAB · RESEARCH NOTEBOOK</span>
-              <span>N=1 Longitudinal Study</span>
+              <span>{studyConfig?.title || 'N=1 Longitudinal Study'}</span>
             </div>
             <div className="flex justify-between items-baseline pt-0.5">
               <h1 className="text-xl font-serif font-bold text-paper-900">
@@ -653,7 +680,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               </h1>
               <div className="text-right">
                 <div className="font-mono text-xs font-bold text-academic-navy">
-                  Day {entry.dayNumber} / 30
+                  Day {entry.dayNumber} / {studyConfig?.durationDays || 30}
                 </div>
                 <div className="font-mono text-[10px] text-academic-slate font-semibold pt-0.5">
                   Report ID: {reportId}

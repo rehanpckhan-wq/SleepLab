@@ -1,28 +1,39 @@
 import React, { useState } from 'react';
 import { DailyEntry } from '@/types/sleeplab';
-import { deleteEntry, seedSampleData, generateReportId } from '@/lib/storage';
-import { Calendar, Clock, Award, Edit3, Trash2, Database, ChevronRight, AlertTriangle, FileText } from 'lucide-react';
+import { StudyConfig } from '@/types/sleeplab';
+import { deleteEntry, deleteEntryAsync, seedSampleData, generateReportId } from '@/lib/storage';
+import { Calendar, Clock, Award, Edit3, Trash2, Database, ChevronRight, AlertTriangle, FileText, Printer } from 'lucide-react';
 
 interface PreviousDaysListProps {
   entries: DailyEntry[];
+  userId?: string | null;
+  studyConfig?: StudyConfig;
   onSelectEntry: (entry: DailyEntry) => void;
   onViewReport: (entry: DailyEntry) => void;
   onEntriesChanged: () => void;
   onNewLogClick: () => void;
+  onOpenExportDialog?: () => void;
 }
 
 export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
   entries,
+  userId,
+  studyConfig,
   onSelectEntry,
   onViewReport,
   onEntriesChanged,
   onNewLogClick,
+  onOpenExportDialog,
 }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteEntry(id);
+    try {
+      await deleteEntryAsync(id, userId);
+    } catch (err) {
+      console.error('Error deleting entry:', err);
+    }
     setDeleteConfirmId(null);
     onEntriesChanged();
   };
@@ -55,7 +66,7 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
         <div>
           <h3 className="text-lg font-serif font-bold text-paper-900">No Experiment Entries Yet</h3>
           <p className="text-sm font-sans text-academic-slate mt-1 max-w-md mx-auto">
-            You haven&apos;t logged any daily observations yet. Log your first day to start accumulating your 30-day sleep dataset.
+            You haven&apos;t logged any daily observations yet. Log your first day to start accumulating your dataset.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -78,16 +89,24 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
 
   return (
     <div className="space-y-4 my-6">
-      <div className="flex items-center justify-between border-b border-paper-200 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-paper-200 pb-3 gap-3">
         <div>
           <h2 className="text-xl font-serif font-bold text-paper-900">Logged Experiment Days</h2>
           <p className="text-xs text-academic-muted mt-0.5">
             Click any entry to open its research-style daily report or edit raw data.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-academic-muted bg-paper-100 px-2.5 py-1 rounded border border-paper-200">
-            {entries.length} of 30 Days Logged
+        <div className="flex items-center gap-2 flex-wrap">
+          {onOpenExportDialog && (
+            <button
+              onClick={onOpenExportDialog}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-paper-100 hover:bg-paper-200 border border-paper-300 text-academic-navy font-mono text-xs font-semibold rounded transition-colors shadow-xs"
+            >
+              <Printer className="w-3.5 h-3.5 text-academic-accent" /> Export Combined PDF
+            </button>
+          )}
+          <span className="text-xs font-mono text-academic-muted bg-paper-100 px-2.5 py-1.5 rounded border border-paper-200 font-semibold">
+            {entries.length} of {studyConfig?.durationDays || 30} Days Logged
           </span>
         </div>
       </div>

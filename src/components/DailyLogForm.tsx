@@ -11,6 +11,7 @@ import { computeMetrics } from '@/lib/calculations';
 import {
   getEntryByDate,
   saveEntry,
+  saveEntryAsync,
   calculateDayNumber,
   getStoredStartDate,
   getCustomMetricDefinitions,
@@ -35,6 +36,7 @@ import {
 
 interface DailyLogFormProps {
   initialEntry?: DailyEntry | null;
+  userId?: string | null;
   onSaved: (savedEntry: DailyEntry) => void;
   onCancel?: () => void;
 }
@@ -57,6 +59,7 @@ const ALL_CONFOUNDERS: ConfoundingFactor[] = [
 
 export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   initialEntry,
+  userId,
   onSaved,
   onCancel,
 }) => {
@@ -64,6 +67,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
 
   const [date, setDate] = useState<string>(initialEntry?.date || todayStr);
   const [isEditingExisting, setIsEditingExisting] = useState<boolean>(!!initialEntry);
+  const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null);
 
   // Sleep state
   const [lightsOut, setLightsOut] = useState<string>(initialEntry?.sleep.lightsOut || '23:00');
@@ -224,8 +228,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveErrorMsg(null);
+    setSaveSuccessMsg(null);
 
     const entryToSave: DailyEntry = {
       id: initialEntry?.id || `entry-${date}`,
@@ -267,17 +273,21 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    const { isUpdate } = saveEntry(entryToSave);
+    try {
+      const { isUpdate } = await saveEntryAsync(entryToSave, userId);
 
-    setSaveSuccessMsg(
-      isUpdate
-        ? `Entry for ${date} (Day ${dayNumber}) updated successfully.`
-        : `Entry for ${date} (Day ${dayNumber}) saved successfully.`
-    );
+      setSaveSuccessMsg(
+        isUpdate
+          ? `Entry for ${date} (Day ${dayNumber}) updated successfully.`
+          : `Entry for ${date} (Day ${dayNumber}) saved successfully.`
+      );
 
-    setTimeout(() => {
-      onSaved(entryToSave);
-    }, 400);
+      setTimeout(() => {
+        onSaved(entryToSave);
+      }, 400);
+    } catch (err: any) {
+      setSaveErrorMsg(err.message || 'Failed to save entry. Please check your network connection.');
+    }
   };
 
   return (

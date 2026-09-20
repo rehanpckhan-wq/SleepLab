@@ -93,3 +93,13 @@ export interface DailyEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+export type StudyStatus = 'Upcoming' | 'Active' | 'Completed';
+
+export interface StudyConfig {
+  id: string;
+  title: string;
+  startDate: string; // YYYY-MM-DD
+  durationDays: number;
+  updatedAt?: string;
+}
