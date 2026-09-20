@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { CustomMetricDefinition, CustomMetricType } from '@/types/sleeplab';
-import { saveCustomMetricDefinition } from '@/lib/storage';
-import { PlusCircle, Save, X, AlertCircle } from 'lucide-react';
+import { saveCustomMetricDefinitionAsync } from '@/lib/storage';
+import { PlusCircle, Save, X, AlertCircle, Loader2 } from 'lucide-react';
 
 interface CustomMetricBuilderProps {
   initialMetric?: CustomMetricDefinition | null;
+  userId?: string | null;
   onSave: (metric: CustomMetricDefinition) => void;
   onCancel: () => void;
 }
 
 export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
   initialMetric,
+  userId,
   onSave,
   onCancel,
 }) => {
@@ -25,8 +27,9 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
   const [unit, setUnit] = useState<string>(initialMetric?.config?.unit || '');
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -45,6 +48,7 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
       }
     }
 
+    setIsSaving(true);
     const metricToSave: CustomMetricDefinition = {
       id: initialMetric?.id || `metric_${Date.now()}`,
       name: name.trim(),
@@ -67,7 +71,8 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    saveCustomMetricDefinition(metricToSave);
+    await saveCustomMetricDefinitionAsync(metricToSave, userId);
+    setIsSaving(false);
     onSave(metricToSave);
   };
 

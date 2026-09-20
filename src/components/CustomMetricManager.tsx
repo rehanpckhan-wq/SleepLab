@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { CustomMetricDefinition } from '@/types/sleeplab';
 import {
   getCustomMetricDefinitions,
-  archiveCustomMetric,
-  restoreCustomMetric,
-  reorderCustomMetrics,
-  deleteCustomMetricDefinition,
+  fetchCustomMetricDefinitionsAsync,
+  archiveCustomMetricAsync,
+  restoreCustomMetricAsync,
+  reorderCustomMetricsAsync,
+  deleteCustomMetricDefinitionAsync,
 } from '@/lib/storage';
-import { Settings, ArrowUp, ArrowDown, Edit2, Archive, RotateCcw, Plus, X, Trash2, ShieldAlert } from 'lucide-react';
+import { Settings, ArrowUp, ArrowDown, Edit2, Archive, RotateCcw, Plus, X, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
 
 interface CustomMetricManagerProps {
+  userId?: string | null;
   onClose: () => void;
   onEditMetric: (metric: CustomMetricDefinition) => void;
   onCreateNewMetric: () => void;
@@ -17,6 +19,7 @@ interface CustomMetricManagerProps {
 }
 
 export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
+  userId,
   onClose,
   onEditMetric,
   onCreateNewMetric,
@@ -24,43 +27,52 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
 }) => {
   const [metrics, setMetrics] = useState<CustomMetricDefinition[]>(getCustomMetricDefinitions());
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const activeMetrics = metrics.filter((m) => m.active !== false);
   const archivedMetrics = metrics.filter((m) => m.active === false);
 
-  const refreshList = () => {
-    const updated = getCustomMetricDefinitions();
+  const refreshList = async () => {
+    const updated = await fetchCustomMetricDefinitionsAsync(userId);
     setMetrics(updated);
     onMetricsUpdated();
   };
 
-  const handleArchive = (id: string) => {
-    archiveCustomMetric(id);
-    refreshList();
+  const handleArchive = async (id: string) => {
+    setIsProcessing(true);
+    await archiveCustomMetricAsync(id, userId);
+    await refreshList();
+    setIsProcessing(false);
   };
 
-  const handleRestore = (id: string) => {
-    restoreCustomMetric(id);
-    refreshList();
+  const handleRestore = async (id: string) => {
+    setIsProcessing(true);
+    await restoreCustomMetricAsync(id, userId);
+    await refreshList();
+    setIsProcessing(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteCustomMetricDefinition(id);
+  const handleDelete = async (id: string) => {
+    setIsProcessing(true);
+    await deleteCustomMetricDefinitionAsync(id, userId);
     setDeleteConfirmId(null);
-    refreshList();
+    await refreshList();
+    setIsProcessing(false);
   };
 
-  const handleMove = (index: number, direction: 'up' | 'down') => {
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= activeMetrics.length) return;
 
+    setIsProcessing(true);
     const newActiveList = [...activeMetrics];
     const [moved] = newActiveList.splice(index, 1);
     newActiveList.splice(targetIndex, 0, moved);
 
     const orderedIds = [...newActiveList.map((m) => m.id), ...archivedMetrics.map((m) => m.id)];
-    reorderCustomMetrics(orderedIds);
-    refreshList();
+    await reorderCustomMetricsAsync(orderedIds, userId);
+    await refreshList();
+    setIsProcessing(false);
   };
 
   return (

@@ -389,6 +389,27 @@ export function deleteCustomMetricDefinition(id: string): void {
   } catch (e) {
     console.error('Failed to delete custom metric definition:', e);
   }
+
+  // Cascade deletion across local daily entries
+  const entries = getLocalEntries();
+  let modified = false;
+  const cleanedEntries = entries.map((entry) => {
+    if (entry.additionalMetrics && id in entry.additionalMetrics) {
+      modified = true;
+      const copy = { ...entry.additionalMetrics };
+      delete copy[id];
+      return { ...entry, additionalMetrics: copy };
+    }
+    return entry;
+  });
+
+  if (modified) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanedEntries));
+    } catch (e) {
+      console.error('Failed to cleanup deleted metric from local entries:', e);
+    }
+  }
 }
 
 /* ========================================================================= */
@@ -704,6 +725,25 @@ export async function deleteCustomMetricDefinitionAsync(id: string, userId?: str
   try {
     const { error } = await supabase.from('custom_metric_definitions').delete().eq('id', id).eq('user_id', userId);
     if (error) throw error;
+
+    // Cascade cleanup: remove the metric key from all user entries in Supabase
+    const userEntries = await fetchEntriesAsync(userId);
+    let modified = false;
+    const cleanedRows = userEntries.map((entry) => {
+      let updatedAddMetrics = entry.additionalMetrics;
+      if (entry.additionalMetrics && id in entry.additionalMetrics) {
+        modified = true;
+        const copy = { ...entry.additionalMetrics };
+        delete copy[id];
+        updatedAddMetrics = copy;
+      }
+      return dailyEntryToDb({ ...entry, additionalMetrics: updatedAddMetrics }, userId);
+    });
+
+    if (modified) {
+      const { error: cascadeErr } = await supabase.from('daily_entries').upsert(cleanedRows, { onConflict: 'user_id, date' });
+      if (cascadeErr) console.error('Failed to cascade cleanup deleted metric in Supabase entries:', cascadeErr);
+    }
   } catch (err) {
     console.error('Failed to delete custom metric in Supabase:', err);
   }

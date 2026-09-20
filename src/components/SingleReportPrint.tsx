@@ -58,9 +58,12 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
   };
 
   const recordedAdditionalEntries = entry.additionalMetrics
-    ? Object.entries(entry.additionalMetrics).filter(
-        ([_, val]) => val !== undefined && val !== null && val !== ''
-      )
+    ? Object.entries(entry.additionalMetrics).filter(([metricId, val]) => {
+        if (val === undefined || val === null || val === '') return false;
+        const def = metricDefsMap.get(metricId);
+        // Exclude deleted metrics (def is undefined) and archived metrics (def.active === false)
+        return def && def.active !== false;
+      })
     : [];
 
   return (

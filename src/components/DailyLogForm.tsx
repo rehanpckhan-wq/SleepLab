@@ -15,6 +15,7 @@ import {
   calculateDayNumber,
   getStoredStartDate,
   getCustomMetricDefinitions,
+  fetchCustomMetricDefinitionsAsync,
 } from '@/lib/storage';
 import { CustomMetricInput } from './CustomMetricInput';
 import { CustomMetricBuilder } from './CustomMetricBuilder';
@@ -139,14 +140,14 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   // Feedback banner state
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  const refreshCustomMetrics = () => {
-    const loaded = getCustomMetricDefinitions();
+  const refreshCustomMetrics = async () => {
+    const loaded = await fetchCustomMetricDefinitionsAsync(userId);
     setCustomMetricDefs(loaded);
   };
 
   useEffect(() => {
     refreshCustomMetrics();
-  }, []);
+  }, [userId]);
 
   // Check if changing date loads existing entry
   useEffect(() => {
@@ -820,6 +821,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       {isBuilderOpen && (
         <CustomMetricBuilder
           initialMetric={editingMetric}
+          userId={userId}
           onSave={() => {
             setIsBuilderOpen(false);
             setEditingMetric(null);
@@ -835,6 +837,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       {/* CUSTOM METRIC MANAGER MODAL (Rendered outside form) */}
       {isManagerOpen && (
         <CustomMetricManager
+          userId={userId}
           onClose={() => setIsManagerOpen(false)}
           onEditMetric={(metric) => {
             setIsManagerOpen(false);
