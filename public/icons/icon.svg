@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#1b2a4a"/>
+  <!-- Flask Body -->
+  <path d="M210 110 L302 110 L302 170 L380 340 A 30 30 0 0 1 355 385 L157 385 A 30 30 0 0 1 132 340 L210 170 Z" fill="none" stroke="#ffffff" stroke-width="24" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- Flask Liquid Level -->
+  <path d="M165 330 Q 210 310, 256 330 T 347 330 L370 340 A 15 15 0 0 1 355 375 L157 375 A 15 15 0 0 1 142 340 Z" fill="#d97706"/>
+  <!-- Moon Accent -->
+  <path d="M330 130 A 45 45 0 1 0 395 195 A 35 35 0 1 1 330 130 Z" fill="#fbbf24"/>
+  <!-- Bubbles -->
+  <circle cx="230" cy="270" r="10" fill="#ffffff" opacity="0.8"/>
+  <circle cx="270" cy="230" r="7" fill="#ffffff" opacity="0.6"/>
+  <circle cx="245" cy="195" r="5" fill="#ffffff" opacity="0.5"/>
+</svg>

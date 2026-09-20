@@ -1,6 +1,7 @@
 import React from 'react';
 import { StudyConfig, StudyStatus } from '@/types/sleeplab';
 import { calculateEndDate, getStudyStatus } from '@/lib/storage';
+import { InstallPWA } from './InstallPWA';
 import { FlaskConical, Calendar, Award, Cloud, User, LogOut, Settings, Clock, CheckCircle2 } from 'lucide-react';
 
 interface HeaderProps {
@@ -75,6 +76,11 @@ export const Header: React.FC<HeaderProps> = ({
                   <User className="w-3.5 h-3.5 text-academic-accent" /> Sign In / Sync
                 </button>
               )}
+
+              {/* PWA Home Screen Install Button */}
+              <div className="border-l border-paper-300 pl-2">
+                <InstallPWA />
+              </div>
             </div>
 
             <div className="flex items-center gap-3 mt-2">
