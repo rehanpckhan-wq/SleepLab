@@ -499,7 +499,13 @@ export async function fetchCustomMetricDefinitionsAsync(userId?: string | null):
 
     if (error) throw error;
     if (!data) return [];
-    return data.map(dbToCustomMetricDef);
+    const remoteDefs = data.map(dbToCustomMetricDef);
+    try {
+      localStorage.setItem(CUSTOM_METRICS_KEY, JSON.stringify(remoteDefs));
+    } catch (e) {
+      console.error('Failed to update local custom metrics cache:', e);
+    }
+    return remoteDefs;
   } catch (err) {
     console.error('Supabase fetch custom metrics error:', err);
     return getLocalCustomMetricDefinitions();

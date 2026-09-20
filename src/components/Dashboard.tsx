@@ -5,6 +5,7 @@ import { DailyEntry, StudyConfig } from '@/types/sleeplab';
 import {
   fetchEntriesAsync,
   fetchStudyConfigAsync,
+  fetchCustomMetricDefinitionsAsync,
   saveStudyConfigAsync,
   getLocalStudyConfig,
   hasUnmigratedLocalData,
@@ -46,6 +47,7 @@ export const Dashboard: React.FC = () => {
         const targetUid = uid !== undefined ? uid : userId;
         const loadedEntries = await fetchEntriesAsync(targetUid);
         const loadedConfig = await fetchStudyConfigAsync(targetUid);
+        await fetchCustomMetricDefinitionsAsync(targetUid);
 
         setEntries(loadedEntries);
         setStudyConfig(loadedConfig);
