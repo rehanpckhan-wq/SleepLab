@@ -196,7 +196,7 @@ export const Dashboard: React.FC = () => {
   const avgRecoveryScore = entries.length > 0 ? Math.round((recoveryScoresSum / entries.length) * 10) / 10 : 0;
 
   return (
-    <div className="min-h-screen bg-paper-50 font-sans text-paper-900 flex flex-col">
+    <div className="min-h-screen bg-[var(--canvas)] font-sans text-[var(--text-primary)] flex flex-col transition-colors duration-200">
       <Header
         studyConfig={studyConfig}
         currentDayNumber={currentDayNumber > studyConfig.durationDays ? studyConfig.durationDays : currentDayNumber}
@@ -209,7 +209,7 @@ export const Dashboard: React.FC = () => {
         onOpenStudySettings={() => setIsStudySettingsOpen(true)}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:px-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6">
         {/* Sync Banner when local unmigrated entries exist */}
         {userId && showSyncBanner && (
           <SyncBanner
@@ -222,25 +222,25 @@ export const Dashboard: React.FC = () => {
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-paper-200 gap-4 mb-6">
-          <div className="flex space-x-1 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--border-default)] gap-4 mb-8">
+          <div className="flex space-x-2 flex-wrap">
             <button
               onClick={handleStartNewLog}
-              className={`flex items-center gap-2 px-4 py-2.5 font-mono text-xs font-semibold rounded-t border-t border-l border-r transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 -mb-px ${
                 activeTab === 'log' && !selectedEntryToEdit
-                  ? 'bg-white border-paper-300 text-academic-navy border-b-white -mb-px'
-                  : 'bg-paper-100 border-transparent text-academic-muted hover:text-paper-900'
+                  ? 'bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] font-semibold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] border border-transparent font-medium'
               }`}
             >
-              <PlusCircle className="w-3.5 h-3.5" /> Log Today
+              <PlusCircle className="w-3.5 h-3.5 text-[var(--accent)]" /> Log Today
             </button>
 
             {selectedEntryToEdit && (
               <button
                 onClick={() => setActiveTab('log')}
-                className={`flex items-center gap-2 px-4 py-2.5 font-mono text-xs font-semibold rounded-t border-t border-l border-r transition-colors bg-amber-50 border-amber-300 text-amber-900 border-b-white -mb-px`}
+                className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs font-semibold rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 bg-[var(--accent-soft)] text-[var(--accent)] border-t border-l border-r border-[var(--accent)]/30 border-b-[var(--canvas)] -mb-px`}
               >
-                <FileText className="w-3.5 h-3.5 text-amber-700" /> Editing Day {selectedEntryToEdit.dayNumber} (
+                <FileText className="w-3.5 h-3.5 text-[var(--accent)]" /> Editing Day {selectedEntryToEdit.dayNumber} (
                 {selectedEntryToEdit.date})
               </button>
             )}
@@ -248,9 +248,9 @@ export const Dashboard: React.FC = () => {
             {activeTab === 'report' && selectedReportEntry && (
               <button
                 onClick={() => setActiveTab('report')}
-                className={`flex items-center gap-2 px-4 py-2.5 font-mono text-xs font-semibold rounded-t border-t border-l border-r transition-colors bg-white border-paper-300 text-academic-navy border-b-white -mb-px`}
+                className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs font-semibold rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] -mb-px`}
               >
-                <FlaskConical className="w-3.5 h-3.5 text-academic-navy" /> Daily Report: Day{' '}
+                <FlaskConical className="w-3.5 h-3.5 text-[var(--accent)]" /> Daily Report: Day{' '}
                 {selectedReportEntry.dayNumber}
               </button>
             )}
@@ -260,13 +260,13 @@ export const Dashboard: React.FC = () => {
                 setSelectedEntryToEdit(null);
                 setActiveTab('history');
               }}
-              className={`flex items-center gap-2 px-4 py-2.5 font-mono text-xs font-semibold rounded-t border-t border-l border-r transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 -mb-px ${
                 activeTab === 'history'
-                  ? 'bg-white border-paper-300 text-academic-navy border-b-white -mb-px'
-                  : 'bg-paper-100 border-transparent text-academic-muted hover:text-paper-900'
+                  ? 'bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] font-semibold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] border border-transparent font-medium'
               }`}
             >
-              <ListFilter className="w-3.5 h-3.5" /> Previous Days ({entries.length})
+              <ListFilter className="w-3.5 h-3.5 text-[var(--accent)]" /> Log & Trends ({entries.length})
             </button>
           </div>
         </div>
@@ -274,14 +274,14 @@ export const Dashboard: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'log' ? (
           <div>
-            <div className="mb-4">
-              <h2 className="text-2xl font-serif font-bold text-paper-900">
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-normal text-[var(--text-primary)]">
                 {selectedEntryToEdit
                   ? `Edit Record: Day ${selectedEntryToEdit.dayNumber} (${selectedEntryToEdit.date})`
                   : 'Daily Observation Log'}
               </h2>
-              <p className="text-xs font-sans text-academic-slate mt-1">
-                Fill all parameters consistently (~2 minutes). Data is securely synced to Supabase when logged in.
+              <p className="text-xs font-sans text-[var(--text-secondary)] mt-1 max-w-2xl">
+                Log your sleep & recovery parameters consistently. Data is synced to your account.
               </p>
             </div>
 
@@ -354,11 +354,11 @@ export const Dashboard: React.FC = () => {
         onExport={handleTriggerExport}
       />
 
-      {/* Academic Footer */}
-      <footer className="border-t border-paper-200 bg-white py-4 mt-auto">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-academic-muted gap-2">
-          <div>SleepLab N=1 Longitudinal Study · Phase 2.6 Study Configuration</div>
-          <div>{userId && userEmail ? `Synced with Supabase (@${userEmail.split('@')[0]})` : 'Offline / Local Browser Persistence'}</div>
+      {/* Editorial Footer */}
+      <footer className="border-t border-[var(--border-default)] bg-[var(--canvas)] py-5 mt-auto transition-colors duration-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs font-sans text-[var(--text-tertiary)] gap-2">
+          <div>SleepLab N=1 Longitudinal Study</div>
+          <div>{userId && userEmail ? `Synced with Supabase (@${userEmail.split('@')[0]})` : 'Offline / Local Persistence'}</div>
         </div>
       </footer>
     </div>

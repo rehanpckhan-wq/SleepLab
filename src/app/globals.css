@@ -3,34 +3,130 @@
 @tailwind utilities;
 
 :root {
-  --background: #FAF9F6;
-  --foreground: #1A1917;
+  color-scheme: light;
+
+  /* color — light */
+  --canvas: #faf9f5;
+  --surface: #ffffff;
+  --surface-raised: #f5f4ee;
+
+  --text-primary: #2b2a26;
+  --text-secondary: #6b6a63;
+  --text-tertiary: #9c9a91;
+
+  --border-default: #e8e6dc;
+  --border-strong: #d1cfc5;
+
+  --accent: #c96442;
+  --accent-hover: #b8542f;
+  --accent-soft: #f3e4dc;
+
+  --success: #5a8c5a;
+  --success-soft: #e6efe2;
+  --warning: #b58a3c;
+  --warning-soft: #fbf3df;
+  --danger: #b54a3c;
+  --danger-soft: #fbe8e3;
+  --info: #5a708c;
+  --info-soft: #e9edf3;
+
+  /* typography */
+  --font-serif: var(--font-serif, "Source Serif 4", Georgia, serif);
+  --font-sans: var(--font-sans, "Inter", system-ui, -apple-system, sans-serif);
+  --font-mono: var(--font-mono, "JetBrains Mono", monospace);
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px rgba(43, 42, 38, 0.06);
+  --shadow-md: 0 2px 8px rgba(43, 42, 38, 0.08);
+  --shadow-lg: 0 8px 24px rgba(43, 42, 38, 0.12);
+
+  /* motion */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #262625;
+  --surface: #30302e;
+  --surface-raised: #3a3937;
+
+  --text-primary: #f2f0e9;
+  --text-secondary: #b8b6ac;
+  --text-tertiary: #83817a;
+
+  --border-default: #40403c;
+  --border-strong: #504f4a;
+
+  --accent: #d97757;
+  --accent-hover: #e08765;
+  --accent-soft: #4a352c;
+
+  --success: #7fb37f;
+  --success-soft: #2a3a2a;
+  --warning: #d1a656;
+  --warning-soft: #3d3420;
+  --danger: #d97060;
+  --danger-soft: #3d2422;
+  --info: #7d95b3;
+  --info-soft: #242f3d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--canvas);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
-/* Custom subtle scrollbar */
+/* Native Calendar & Timepicker indicator styling for Dark Mode */
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+}
+
+/* Custom subtle warm scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F4F2EC;
+  background: var(--canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D5D0C2;
-  border-radius: 3px;
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3A4750;
+  background: var(--text-tertiary);
 }
 
 /* Print Optimization Styles - PDF Export Layout */
@@ -40,9 +136,10 @@ body {
     size: A4 portrait;
   }
 
-  html, body {
+  html,
+  body {
     background: #ffffff !important;
-    color: #1a1917 !important;
+    color: #2b2a26 !important;
     font-size: 9.5pt !important;
     line-height: 1.3 !important;
     margin: 0 !important;

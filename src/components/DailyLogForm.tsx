@@ -10,11 +10,9 @@ import { SliderField } from './SliderField';
 import { computeMetrics } from '@/lib/calculations';
 import {
   getEntryByDate,
-  saveEntry,
   saveEntryAsync,
   calculateDayNumber,
   getStoredStartDate,
-  getCustomMetricDefinitions,
   fetchCustomMetricDefinitionsAsync,
 } from '@/lib/storage';
 import { CustomMetricInput } from './CustomMetricInput';
@@ -296,16 +294,16 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-8 pb-12">
         {/* Save Success Banner */}
         {saveSuccessMsg && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded flex items-center gap-3 font-medium text-sm">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+          <div className="bg-[var(--success-soft)] border border-[var(--success)]/30 text-[var(--success)] p-4 rounded-lg flex items-center gap-3 font-medium text-xs">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>{saveSuccessMsg}</span>
           </div>
         )}
 
         {/* Date & Existing Entry Notice */}
-        <div className="bg-white p-5 rounded border border-paper-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-[var(--surface)] p-5 rounded-lg border border-[var(--border-default)] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <label className="block text-xs font-mono font-semibold uppercase tracking-wider text-academic-slate mb-1">
+            <label className="block text-xs font-sans font-medium uppercase tracking-wider text-[var(--text-secondary)] mb-1">
               Observation Date
             </label>
             <div className="flex items-center gap-3">
@@ -314,59 +312,59 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="border border-paper-300 rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-academic-accent bg-paper-50"
+                className="border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent-soft)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
               />
             </div>
           </div>
 
           {isEditingExisting && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded text-xs">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <div className="flex items-center gap-2 bg-[var(--warning-soft)] text-[var(--warning)] px-3 py-2 rounded-md text-xs font-sans">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>Existing record loaded for this date. Submitting will update this record.</span>
             </div>
           )}
         </div>
 
         {/* Live Calculated Index Header Banner */}
-        <div className="bg-academic-navy text-white rounded p-5 shadow-sm space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/20 pb-3">
+        <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-default)] pb-3">
             <div>
-              <span className="text-[10px] font-mono tracking-widest uppercase text-paper-300">
+              <span className="text-[10px] font-sans tracking-widest uppercase text-[var(--text-tertiary)]">
                 Live Calculated Metric
               </span>
-              <h3 className="text-xl font-serif font-bold tracking-tight text-white flex items-center gap-2 mt-0.5">
-                <Sparkles className="w-5 h-5 text-amber-300" /> Daily Recovery Index
+              <h3 className="text-xl font-serif font-normal text-[var(--text-primary)] flex items-center gap-2 mt-0.5">
+                <Sparkles className="w-4 h-4 text-[var(--accent)]" /> Daily Recovery Index
               </h3>
             </div>
             <div className="flex items-baseline gap-3">
               <div className="text-right">
-                <span className="text-3xl font-mono font-bold text-white">
+                <span className="text-3xl font-sans font-semibold text-[var(--text-primary)]">
                   {calculatedMetrics.recoveryIndexScore}
                 </span>
-                <span className="text-sm font-mono text-paper-300"> / 50</span>
+                <span className="text-xs font-sans text-[var(--text-tertiary)]"> / 50</span>
               </div>
-              <div className="text-lg font-mono font-semibold text-amber-300 bg-white/10 px-2.5 py-0.5 rounded border border-white/20">
+              <div className="text-sm font-sans font-medium text-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-0.5 rounded-full">
                 {calculatedMetrics.recoveryIndexPercentage}%
               </div>
             </div>
           </div>
 
-          <p className="text-xs font-sans text-paper-200 leading-relaxed">
+          <p className="text-xs font-sans text-[var(--text-secondary)] leading-relaxed">
             The Recovery Index is calculated automatically as the unweighted average of 5 core subjective markers:
             <strong> Morning Alertness</strong>, <strong>Mood</strong>, <strong>Skin Health</strong>, <strong>Muscle Fullness</strong>, and <strong>Afternoon Energy</strong>.
           </p>
         </div>
 
         {/* SECTION 1: SLEEP DATA */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <Moon className="w-5 h-5 text-academic-accent" />
-            <h2 className="text-lg font-serif font-bold text-paper-900">1. Sleep Parameters</h2>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-5">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <Moon className="w-4 h-4 text-[var(--accent)]" />
+            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">1. Sleep Parameters</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-paper-900 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Lights Out Time
               </label>
               <input
@@ -374,13 +372,13 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 required
                 value={lightsOut}
                 onChange={(e) => setLightsOut(e.target.value)}
-                className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent"
+                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
               />
-              <p className="text-[11px] text-academic-muted mt-1">When you got into bed & turned lights off.</p>
+              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-paper-900 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Estimated Sleep Time
               </label>
               <input
@@ -388,13 +386,13 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 required
                 value={estimatedSleepTime}
                 onChange={(e) => setEstimatedSleepTime(e.target.value)}
-                className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent"
+                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
               />
-              <p className="text-[11px] text-academic-muted mt-1">Estimated time you actually fell asleep.</p>
+              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-paper-900 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Natural / Final Wake Time
               </label>
               <input
@@ -402,23 +400,23 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 required
                 value={naturalWakeTime}
                 onChange={(e) => setNaturalWakeTime(e.target.value)}
-                className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent"
+                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
               />
-              <p className="text-[11px] text-academic-muted mt-1">When you woke up to start your day.</p>
+              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
             </div>
           </div>
 
           {/* Calculated Sleep Duration Readout */}
-          <div className="bg-paper-50 border border-paper-200 rounded p-4 flex items-center justify-between">
+          <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-academic-accent" />
-              <span className="text-xs font-semibold uppercase font-mono tracking-wider text-academic-slate">
+              <Clock className="w-4 h-4 text-[var(--accent)]" />
+              <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
                 Estimated Total Sleep Duration:
               </span>
             </div>
-            <div className="font-mono text-base font-bold text-academic-navy">
+            <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
               {calculatedMetrics.totalSleepFormatted}
-              <span className="text-xs font-normal text-academic-muted ml-2">
+              <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
                 ({calculatedMetrics.totalSleepMinutes} minutes)
               </span>
             </div>
@@ -427,27 +425,27 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           {/* Alarm & Awakenings */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             <div>
-              <label className="block text-xs font-semibold text-paper-900 mb-2">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
                 Woke Up to Alarm?
               </label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-sans text-paper-900">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
                   <input
                     type="radio"
                     name="alarmWake"
                     checked={alarmWake === true}
                     onChange={() => setAlarmWake(true)}
-                    className="accent-academic-accent"
+                    className="accent-[var(--accent)]"
                   />
                   Yes (Alarm)
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-sans text-paper-900">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
                   <input
                     type="radio"
                     name="alarmWake"
                     checked={alarmWake === false}
                     onChange={() => setAlarmWake(false)}
-                    className="accent-academic-accent"
+                    className="accent-[var(--accent)]"
                   />
                   No (Natural Wake)
                 </label>
@@ -455,7 +453,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-paper-900 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Number of Awakenings
               </label>
               <input
@@ -464,15 +462,15 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 max={20}
                 value={numberOfAwakenings}
                 onChange={(e) => setNumberOfAwakenings(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-32 border border-paper-300 rounded px-3 py-1.5 text-sm font-mono focus:ring-1 focus:ring-academic-accent"
+                className="w-32 border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
               />
             </div>
           </div>
 
           {/* Awakening Reasons */}
           {numberOfAwakenings > 0 && (
-            <div className="pt-2 border-t border-paper-100">
-              <label className="block text-xs font-semibold text-paper-900 mb-2">
+            <div className="pt-2 border-t border-[var(--border-default)]">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
                 Awakening Reason(s)
               </label>
               <div className="flex flex-wrap gap-2">
@@ -483,10 +481,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                       key={reason}
                       type="button"
                       onClick={() => handleAwakeningReasonToggle(reason)}
-                      className={`px-3 py-1 rounded text-xs font-mono transition-colors border ${
+                      className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
                         isSelected
-                          ? 'bg-academic-navy text-white border-academic-navy'
-                          : 'bg-paper-50 text-paper-900 border-paper-300 hover:bg-paper-100'
+                          ? 'bg-[var(--accent)] text-white border-transparent'
+                          : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       {reason}
@@ -499,12 +497,12 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* SECTION 2: MORNING ASSESSMENT */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <Sun className="w-5 h-5 text-amber-600" />
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <Sun className="w-4 h-4 text-[var(--warning)]" />
             <div>
-              <h2 className="text-lg font-serif font-bold text-paper-900">2. Morning Assessment</h2>
-              <p className="text-xs text-academic-muted">
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">2. Morning Assessment</h2>
+              <p className="text-xs text-[var(--text-tertiary)]">
                 Logged ~45 minutes post-wake, after standard morning routine.
               </p>
             </div>
@@ -547,12 +545,12 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* SECTION 3: RECOVERY */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <Battery className="w-5 h-5 text-emerald-600" />
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <Battery className="w-4 h-4 text-[var(--success)]" />
             <div>
-              <h2 className="text-lg font-serif font-bold text-paper-900">3. Physical & Subjective Recovery</h2>
-              <p className="text-xs text-academic-muted">
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">3. Physical & Subjective Recovery</h2>
+              <p className="text-xs text-[var(--text-tertiary)]">
                 Subjective physiological observations. Not objective clinical telemetry.
               </p>
             </div>
@@ -595,10 +593,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* SECTION 4: AFTERNOON */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <Sun className="w-5 h-5 text-academic-accent" />
-            <h2 className="text-lg font-serif font-bold text-paper-900">4. Afternoon Functioning</h2>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <Sun className="w-4 h-4 text-[var(--accent)]" />
+            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">4. Afternoon Functioning</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -621,27 +619,27 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           </div>
 
           <div className="pt-2">
-            <label className="block text-xs font-semibold text-paper-900 mb-2">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
               Experienced Afternoon Slump?
             </label>
             <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-sans text-paper-900">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
                 <input
                   type="radio"
                   name="afternoonSlump"
                   checked={afternoonSlump === true}
                   onChange={() => setAfternoonSlump(true)}
-                  className="accent-academic-accent"
+                  className="accent-[var(--accent)]"
                 />
                 Yes (Severe drop in energy)
               </label>
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-sans text-paper-900">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
                 <input
                   type="radio"
                   name="afternoonSlump"
                   checked={afternoonSlump === false}
                   onChange={() => setAfternoonSlump(false)}
-                  className="accent-academic-accent"
+                  className="accent-[var(--accent)]"
                 />
                 No (Steady energy)
               </label>
@@ -650,28 +648,28 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* SECTION 5: EVENING & NOTES */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <Moon className="w-5 h-5 text-academic-navy" />
-            <h2 className="text-lg font-serif font-bold text-paper-900">5. Evening Readiness & Notes</h2>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <Moon className="w-4 h-4 text-[var(--text-primary)]" />
+            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">5. Evening Readiness & Notes</h2>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-paper-900 mb-2">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
               Did I naturally feel sleepy before bedtime?
             </label>
             <div className="flex flex-wrap gap-4">
               {(['Yes', 'Somewhat', 'No'] as SleepyBeforeBedOption[]).map((option) => (
                 <label
                   key={option}
-                  className="flex items-center gap-2 cursor-pointer text-sm font-sans text-paper-900"
+                  className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]"
                 >
                   <input
                     type="radio"
                     name="sleepyBeforeBed"
                     checked={naturallySleepyBeforeBed === option}
                     onChange={() => setNaturallySleepyBeforeBed(option)}
-                    className="accent-academic-accent"
+                    className="accent-[var(--accent)]"
                   />
                   {option}
                 </label>
@@ -680,29 +678,29 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-paper-900 mb-1">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
               Qualitative Observations / Daily Notes
             </label>
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Record anything noteworthy: unusual stress, diet variations, environmental factors..."
-              className="w-full border border-paper-300 rounded p-3 text-sm font-sans focus:ring-1 focus:ring-academic-accent"
+              placeholder="Record anything noteworthy: subjective reflections, stress, diet variations, environment..."
+              className="w-full border border-[var(--border-default)] rounded-md p-3 text-xs font-serif bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
             />
           </div>
         </section>
 
         {/* SECTION 6: CONFOUNDING FACTORS */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-paper-200 pb-3">
-            <ShieldAlert className="w-5 h-5 text-amber-700" />
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
+          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+            <ShieldAlert className="w-4 h-4 text-[var(--warning)]" />
             <div>
-              <h2 className="text-lg font-serif font-bold text-paper-900">
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">
                 6. Potential Confounding Factors
               </h2>
-              <p className="text-xs text-academic-muted">
-                Select all variables that occurred today for subgroup analysis in later phases.
+              <p className="text-xs text-[var(--text-tertiary)]">
+                Select variables that occurred today.
               </p>
             </div>
           </div>
@@ -713,17 +711,17 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
               return (
                 <label
                   key={item}
-                  className={`flex items-center gap-2 p-2.5 rounded border text-xs font-sans cursor-pointer transition-colors ${
+                  className={`flex items-center gap-2 p-2.5 rounded-md border text-xs font-sans cursor-pointer transition-colors ${
                     isChecked
-                      ? 'bg-academic-navy text-white border-academic-navy'
-                      : 'bg-paper-50 text-paper-900 border-paper-200 hover:bg-paper-100'
+                      ? 'bg-[var(--accent)] text-white border-transparent font-medium'
+                      : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => handleConfounderToggle(item)}
-                    className="rounded border-paper-300 text-academic-navy focus:ring-0"
+                    className="rounded border-[var(--border-default)] text-[var(--accent)] focus:ring-0"
                   />
                   <span className="select-none">{item}</span>
                 </label>
@@ -733,14 +731,14 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* SECTION 7: ADDITIONAL (USER-DEFINED CUSTOM METRICS) */}
-        <section className="bg-white rounded border border-paper-200 p-6 space-y-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-paper-200 pb-3">
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-default)] pb-3">
             <div className="flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-academic-accent" />
+              <Sliders className="w-4 h-4 text-[var(--accent)]" />
               <div>
-                <h2 className="text-lg font-serif font-bold text-paper-900">7. Additional</h2>
-                <p className="text-xs text-academic-muted">
-                  User-defined experimental variables created for custom longitudinal tracking.
+                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">7. Custom Variables</h2>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  User-defined experimental variables created for custom tracking.
                 </p>
               </div>
             </div>
@@ -752,14 +750,14 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                   setEditingMetric(null);
                   setIsBuilderOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-paper-100 hover:bg-paper-200 border border-paper-300 text-academic-navy font-mono text-xs font-semibold rounded transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] font-sans text-xs font-medium rounded-md transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" /> Create Custom Metric
+                <Plus className="w-3.5 h-3.5 text-[var(--accent)]" /> Create Custom Metric
               </button>
               <button
                 type="button"
                 onClick={() => setIsManagerOpen(true)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-paper-50 hover:bg-paper-100 border border-paper-300 text-academic-slate font-mono text-xs rounded transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-secondary)] font-sans text-xs rounded-md transition-colors"
                 title="Manage custom metric templates & ordering"
               >
                 <Settings className="w-3.5 h-3.5" /> Manage
@@ -768,9 +766,9 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           </div>
 
           {activeCustomMetrics.length === 0 ? (
-            <div className="bg-paper-50 border border-paper-200 rounded p-6 text-center space-y-3">
-              <p className="text-xs font-mono text-academic-muted italic">
-                No additional metrics created yet.
+            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-6 text-center space-y-3">
+              <p className="text-xs font-sans text-[var(--text-tertiary)] italic">
+                No additional custom metrics created yet.
               </p>
               <button
                 type="button"
@@ -778,7 +776,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                   setEditingMetric(null);
                   setIsBuilderOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-academic-navy text-white font-mono text-xs font-semibold rounded hover:bg-academic-slate transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white font-sans text-xs font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" /> Create Custom Metric
               </button>
@@ -798,26 +796,26 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </section>
 
         {/* FORM ACTION BUTTONS */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-paper-200">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-default)]">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 border border-paper-300 rounded text-sm font-sans font-medium text-paper-900 hover:bg-paper-100 transition-colors"
+              className="px-4 py-2 border border-[var(--border-default)] rounded-md text-xs font-sans font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
             >
               Cancel
             </button>
           )}
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-2.5 bg-academic-navy text-white font-mono font-semibold text-sm rounded hover:bg-academic-slate transition-colors shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white font-sans font-medium text-xs rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
           >
-            <Save className="w-4 h-4" /> Save Day Entry
+            <Save className="w-4 h-4" /> Save Daily Entry
           </button>
         </div>
       </form>
 
-      {/* CUSTOM METRIC BUILDER MODAL (Rendered outside form) */}
+      {/* CUSTOM METRIC BUILDER MODAL */}
       {isBuilderOpen && (
         <CustomMetricBuilder
           initialMetric={editingMetric}
@@ -834,7 +832,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         />
       )}
 
-      {/* CUSTOM METRIC MANAGER MODAL (Rendered outside form) */}
+      {/* CUSTOM METRIC MANAGER MODAL */}
       {isManagerOpen && (
         <CustomMetricManager
           userId={userId}

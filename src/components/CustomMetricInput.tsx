@@ -19,19 +19,19 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
     case 'checkbox': {
       const isChecked = value === true;
       return (
-        <div className="bg-white p-4 rounded border border-paper-200 shadow-sm flex items-center justify-between">
+        <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
           <div>
-            <label className="text-sm font-semibold text-paper-900">{name}</label>
-            {description && <p className="text-xs text-academic-muted mt-0.5">{description}</p>}
+            <label className="text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{name}</label>
+            {description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>}
           </div>
-          <label className="flex items-center gap-2 cursor-pointer font-mono text-xs font-semibold">
+          <label className="flex items-center gap-2 cursor-pointer font-sans text-xs font-medium">
             <input
               type="checkbox"
               checked={isChecked}
               onChange={(e) => onChange(e.target.checked)}
-              className="w-4 h-4 rounded text-academic-navy focus:ring-0 accent-academic-navy"
+              className="w-4 h-4 rounded text-[var(--accent)] focus:ring-0 accent-[var(--accent)]"
             />
-            <span>{isChecked ? 'Yes' : 'No'}</span>
+            <span className="text-[var(--text-primary)]">{isChecked ? 'Yes' : 'No'}</span>
           </label>
         </div>
       );
@@ -58,14 +58,14 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
 
     case 'number': {
       return (
-        <div className="bg-white p-4 rounded border border-paper-200 shadow-sm space-y-1.5">
+        <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] space-y-1.5">
           <div className="flex justify-between items-baseline">
-            <label className="text-sm font-semibold text-paper-900">{name}</label>
+            <label className="text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{name}</label>
             {config?.unit && (
-              <span className="text-xs font-mono text-academic-muted">{config.unit}</span>
+              <span className="text-xs font-sans text-[var(--text-tertiary)]">{config.unit}</span>
             )}
           </div>
-          {description && <p className="text-xs text-academic-muted mb-1">{description}</p>}
+          {description && <p className="text-xs text-[var(--text-secondary)] mb-1">{description}</p>}
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -77,11 +77,11 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
                 const valStr = e.target.value;
                 onChange(valStr === '' ? undefined : parseFloat(valStr));
               }}
-              placeholder={`Enter numeric value ${config?.unit ? `in ${config.unit}` : ''}...`}
-              className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent bg-paper-50"
+              placeholder={`Enter value ${config?.unit ? `in ${config.unit}` : ''}...`}
+              className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
             />
             {config?.unit && (
-              <span className="text-xs font-mono font-semibold text-paper-900">{config.unit}</span>
+              <span className="text-xs font-sans font-medium text-[var(--text-primary)]">{config.unit}</span>
             )}
           </div>
         </div>
@@ -90,14 +90,14 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
 
     case 'time': {
       return (
-        <div className="bg-white p-4 rounded border border-paper-200 shadow-sm space-y-1.5">
-          <label className="block text-sm font-semibold text-paper-900">{name}</label>
-          {description && <p className="text-xs text-academic-muted mb-1">{description}</p>}
+        <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] space-y-1.5">
+          <label className="block text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{name}</label>
+          {description && <p className="text-xs text-[var(--text-secondary)] mb-1">{description}</p>}
           <input
             type="time"
             value={value || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
-            className="w-full sm:w-48 border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent bg-paper-50"
+            className="w-full sm:w-48 border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
           />
         </div>
       );
@@ -105,18 +105,18 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
 
     case 'duration': {
       return (
-        <div className="bg-white p-4 rounded border border-paper-200 shadow-sm space-y-1.5">
+        <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] space-y-1.5">
           <div className="flex justify-between items-baseline">
-            <label className="text-sm font-semibold text-paper-900">{name}</label>
-            <span className="text-xs font-mono text-academic-muted">Format: HH:mm or mm:ss</span>
+            <label className="text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{name}</label>
+            <span className="text-xs font-sans text-[var(--text-tertiary)]">Format: HH:mm or mm:ss</span>
           </div>
-          {description && <p className="text-xs text-academic-muted mb-1">{description}</p>}
+          {description && <p className="text-xs text-[var(--text-secondary)] mb-1">{description}</p>}
           <input
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
             placeholder="e.g. 05:00 or 15 mins"
-            className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-academic-accent bg-paper-50"
+            className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
           />
         </div>
       );
@@ -124,15 +124,15 @@ export const CustomMetricInput: React.FC<CustomMetricInputProps> = ({
 
     case 'text': {
       return (
-        <div className="bg-white p-4 rounded border border-paper-200 shadow-sm space-y-1.5">
-          <label className="block text-sm font-semibold text-paper-900">{name}</label>
-          {description && <p className="text-xs text-academic-muted mb-1">{description}</p>}
+        <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] space-y-1.5">
+          <label className="block text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{name}</label>
+          {description && <p className="text-xs text-[var(--text-secondary)] mb-1">{description}</p>}
           <textarea
             rows={2}
             value={value || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
             placeholder="Qualitative details..."
-            className="w-full border border-paper-300 rounded p-3 text-sm font-sans focus:ring-1 focus:ring-academic-accent bg-paper-50"
+            className="w-full border border-[var(--border-default)] rounded-md p-3 text-xs font-serif bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
           />
         </div>
       );

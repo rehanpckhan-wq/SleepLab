@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CustomMetricDefinition, CustomMetricType } from '@/types/sleeplab';
 import { saveCustomMetricDefinitionAsync } from '@/lib/storage';
-import { PlusCircle, Save, X, AlertCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Save, X, AlertCircle } from 'lucide-react';
 
 interface CustomMetricBuilderProps {
   initialMetric?: CustomMetricDefinition | null;
@@ -77,34 +77,34 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-paper-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg border border-paper-300 max-w-lg w-full p-6 space-y-5 shadow-xl font-sans">
-        <div className="flex items-center justify-between border-b border-paper-200 pb-3">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border-default)] max-w-lg w-full p-6 space-y-5 shadow-lg font-sans">
+        <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-3">
           <div className="flex items-center gap-2">
-            <PlusCircle className="w-5 h-5 text-academic-navy" />
-            <h3 className="text-lg font-serif font-bold text-paper-900">
+            <PlusCircle className="w-5 h-5 text-[var(--accent)]" />
+            <h3 className="text-lg font-serif font-normal text-[var(--text-primary)]">
               {initialMetric ? 'Edit Custom Metric' : 'Create Custom Metric'}
             </h3>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 text-academic-muted hover:text-paper-900 rounded"
+            className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded-md"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-800 px-3 py-2 rounded text-xs font-mono flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+          <div className="bg-[var(--danger-soft)] border border-[var(--danger)]/30 text-[var(--danger)] px-3 py-2 rounded-md text-xs font-sans flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-paper-900 mb-1">
-              Metric Name <span className="text-rose-600">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Metric Name <span className="text-[var(--danger)]">*</span>
             </label>
             <input
               type="text"
@@ -115,18 +115,18 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
                 setErrorMsg(null);
               }}
               placeholder="e.g. Cold Shower Duration, Perceived Stress, Creatine Taken..."
-              className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-academic-accent bg-paper-50"
+              className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-paper-900 mb-1">
-              Measurement Input Type <span className="text-rose-600">*</span>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+              Measurement Input Type <span className="text-[var(--danger)]">*</span>
             </label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as CustomMetricType)}
-              className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-academic-accent bg-paper-50"
+              className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
             >
               <option value="checkbox">Checkbox (Binary Yes / No)</option>
               <option value="slider">Slider (Subjective scale 1–10)</option>
@@ -138,7 +138,7 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-paper-900 mb-1">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
               Description (Optional)
             </label>
             <input
@@ -146,47 +146,47 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Subtle context shown under metric when logging..."
-              className="w-full border border-paper-300 rounded px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-academic-accent bg-paper-50"
+              className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
             />
           </div>
 
           {/* Type-Specific Configuration */}
           {(type === 'slider' || type === 'number') && (
-            <div className="bg-paper-50 border border-paper-200 rounded p-4 space-y-3">
-              <span className="block text-xs font-mono font-semibold text-academic-slate uppercase tracking-wider">
+            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 space-y-3">
+              <span className="block text-xs font-sans font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                 Numeric Configuration
               </span>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-paper-900 mb-1">Minimum</label>
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">Minimum</label>
                   <input
                     type="number"
                     value={min}
                     onChange={(e) => setMin(Number(e.target.value))}
-                    className="w-full border border-paper-300 rounded px-2.5 py-1.5 text-xs font-mono bg-white"
+                    className="w-full border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-paper-900 mb-1">Maximum</label>
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">Maximum</label>
                   <input
                     type="number"
                     value={max}
                     onChange={(e) => setMax(Number(e.target.value))}
-                    className="w-full border border-paper-300 rounded px-2.5 py-1.5 text-xs font-mono bg-white"
+                    className="w-full border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-paper-900 mb-1">Step</label>
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">Step</label>
                   <input
                     type="number"
                     value={step}
                     onChange={(e) => setStep(Number(e.target.value))}
-                    className="w-full border border-paper-300 rounded px-2.5 py-1.5 text-xs font-mono bg-white"
+                    className="w-full border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)]"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-paper-900 mb-1">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
                   Unit Label (Optional, e.g. mg, °C, mins)
                 </label>
                 <input
@@ -194,23 +194,24 @@ export const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   placeholder="e.g. mg, kg, °C"
-                  className="w-full border border-paper-300 rounded px-2.5 py-1.5 text-xs font-mono bg-white"
+                  className="w-full border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)]"
                 />
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-paper-200">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-default)]">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 border border-paper-300 rounded text-xs font-sans font-medium text-paper-900 hover:bg-paper-100"
+              className="px-4 py-2 border border-[var(--border-default)] rounded-md text-xs font-sans font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2 bg-academic-navy text-white text-xs font-mono font-semibold rounded hover:bg-academic-slate transition-colors shadow-sm"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-5 py-2 bg-[var(--accent)] text-white text-xs font-sans font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" /> Save Metric
             </button>

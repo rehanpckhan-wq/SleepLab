@@ -22,15 +22,15 @@ export const SliderField: React.FC<SliderFieldProps> = ({
   max = 10,
 }) => {
   return (
-    <div className="bg-white p-4 rounded border border-paper-200 shadow-sm space-y-2">
+    <div className="bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] space-y-2">
       <div className="flex justify-between items-baseline">
         <div>
-          <label className="text-sm font-semibold text-paper-900 tracking-wide">{label}</label>
-          {sublabel && <p className="text-xs text-academic-muted mt-0.5">{sublabel}</p>}
+          <label className="text-xs font-sans font-medium text-[var(--text-primary)] uppercase tracking-wider">{label}</label>
+          {sublabel && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{sublabel}</p>}
         </div>
-        <div className="flex items-center space-x-1">
-          <span className="font-mono text-lg font-bold text-academic-accent">{value}</span>
-          <span className="text-xs text-academic-muted">/ {max}</span>
+        <div className="flex items-center space-x-1 font-sans">
+          <span className="text-lg font-semibold text-[var(--accent)]">{value}</span>
+          <span className="text-xs text-[var(--text-tertiary)]">/ {max}</span>
         </div>
       </div>
 
@@ -41,9 +41,9 @@ export const SliderField: React.FC<SliderFieldProps> = ({
           max={max}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full h-2 bg-paper-100 rounded-lg appearance-none cursor-pointer accent-academic-accent border border-paper-200 focus:outline-none focus:ring-1 focus:ring-academic-accent"
+          className="w-full h-2 bg-[var(--surface-raised)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)] border border-[var(--border-default)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)]"
         />
-        <div className="flex justify-between text-[11px] font-mono text-academic-muted mt-1.5">
+        <div className="flex justify-between text-[11px] font-sans text-[var(--text-tertiary)] mt-1.5">
           <span>{minLabel}</span>
           <span>{maxLabel}</span>
         </div>

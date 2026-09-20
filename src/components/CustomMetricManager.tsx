@@ -8,7 +8,7 @@ import {
   reorderCustomMetricsAsync,
   deleteCustomMetricDefinitionAsync,
 } from '@/lib/storage';
-import { Settings, ArrowUp, ArrowDown, Edit2, Archive, RotateCcw, Plus, X, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
+import { Settings, ArrowUp, ArrowDown, Edit2, Archive, RotateCcw, Plus, X, Trash2, ShieldAlert } from 'lucide-react';
 
 interface CustomMetricManagerProps {
   userId?: string | null;
@@ -76,15 +76,15 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-paper-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg border border-paper-300 max-w-xl w-full p-6 space-y-5 shadow-xl font-sans max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border-default)] max-w-xl w-full p-6 space-y-5 shadow-lg font-sans max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-paper-200 pb-3 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-academic-navy" />
-            <h3 className="text-lg font-serif font-bold text-paper-900">Manage Custom Metrics</h3>
+            <Settings className="w-5 h-5 text-[var(--text-secondary)]" />
+            <h3 className="text-lg font-serif font-normal text-[var(--text-primary)]">Manage Custom Metrics</h3>
           </div>
-          <button onClick={onClose} className="p-1 text-academic-muted hover:text-paper-900 rounded">
+          <button onClick={onClose} className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded-md">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -94,19 +94,19 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
           {/* Active Metrics Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-academic-navy">
+              <span className="text-xs font-sans font-medium uppercase tracking-wider text-[var(--text-primary)]">
                 Active Tracking Metrics ({activeMetrics.length})
               </span>
               <button
                 onClick={onCreateNewMetric}
-                className="flex items-center gap-1 text-xs font-mono font-semibold text-academic-accent hover:underline"
+                className="flex items-center gap-1 text-xs font-sans font-medium text-[var(--accent)] hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Metric
               </button>
             </div>
 
             {activeMetrics.length === 0 ? (
-              <div className="p-4 bg-paper-50 border border-paper-200 rounded text-xs font-mono text-academic-muted italic">
+              <div className="p-4 bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md text-xs font-sans text-[var(--text-tertiary)] italic">
                 No active custom metrics. Click + Add Metric to create your first variable.
               </div>
             ) : (
@@ -114,17 +114,17 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
                 {activeMetrics.map((m, idx) => (
                   <div
                     key={m.id}
-                    className="p-3 bg-white border border-paper-200 rounded flex items-center justify-between gap-3 hover:border-paper-300 transition-colors shadow-sm"
+                    className="p-3 bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md flex items-center justify-between gap-3 hover:border-[var(--border-strong)] transition-colors"
                   >
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-paper-900 truncate">{m.name}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 bg-paper-100 border border-paper-200 rounded text-academic-slate uppercase">
+                        <span className="font-medium text-xs text-[var(--text-primary)] truncate">{m.name}</span>
+                        <span className="text-[10px] font-sans px-2 py-0.5 bg-[var(--surface)] border border-[var(--border-default)] rounded-full text-[var(--text-secondary)] uppercase">
                           {m.type}
                         </span>
                       </div>
                       {m.description && (
-                        <p className="text-xs text-academic-muted truncate">{m.description}</p>
+                        <p className="text-xs text-[var(--text-tertiary)] truncate">{m.description}</p>
                       )}
                     </div>
 
@@ -132,7 +132,7 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
                       <button
                         onClick={() => handleMove(idx, 'up')}
                         disabled={idx === 0}
-                        className="p-1 text-academic-slate hover:bg-paper-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                        className="p-1 text-[var(--text-secondary)] hover:bg-[var(--border-default)] rounded-md disabled:opacity-30"
                         title="Move up"
                       >
                         <ArrowUp className="w-4 h-4" />
@@ -140,7 +140,7 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
                       <button
                         onClick={() => handleMove(idx, 'down')}
                         disabled={idx === activeMetrics.length - 1}
-                        className="p-1 text-academic-slate hover:bg-paper-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                        className="p-1 text-[var(--text-secondary)] hover:bg-[var(--border-default)] rounded-md disabled:opacity-30"
                         title="Move down"
                       >
                         <ArrowDown className="w-4 h-4" />
@@ -148,7 +148,7 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
 
                       <button
                         onClick={() => onEditMetric(m)}
-                        className="p-1 text-academic-accent hover:bg-paper-100 rounded ml-1"
+                        className="p-1 text-[var(--accent)] hover:bg-[var(--border-default)] rounded-md ml-1"
                         title="Edit metric"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -156,8 +156,8 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
 
                       <button
                         onClick={() => handleArchive(m.id)}
-                        className="p-1 text-amber-700 hover:bg-amber-50 rounded"
-                        title="Archive metric (removes from future forms, preserves historical data)"
+                        className="p-1 text-[var(--warning)] hover:bg-[var(--warning-soft)] rounded-md"
+                        title="Archive metric"
                       >
                         <Archive className="w-4 h-4" />
                       </button>
@@ -170,13 +170,13 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
 
           {/* Archived Metrics Section */}
           {archivedMetrics.length > 0 && (
-            <div className="space-y-3 pt-3 border-t border-paper-200">
+            <div className="space-y-3 pt-3 border-t border-[var(--border-default)]">
               <div>
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-academic-muted block">
+                <span className="text-xs font-sans font-medium uppercase tracking-wider text-[var(--text-secondary)] block">
                   Archived Metrics ({archivedMetrics.length})
                 </span>
-                <p className="text-[11px] text-academic-muted mt-0.5">
-                  Archived metrics no longer appear on daily logging forms, but their past historical reports remain intact.
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                  Archived metrics no longer appear on daily logging forms, but past reports remain intact.
                 </p>
               </div>
 
@@ -184,33 +184,33 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
                 {archivedMetrics.map((m) => (
                   <div
                     key={m.id}
-                    className="p-3 bg-paper-50 border border-paper-200 rounded flex items-center justify-between gap-3 opacity-75"
+                    className="p-3 bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md flex items-center justify-between gap-3 opacity-75"
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-paper-900">{m.name}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 bg-paper-200 rounded text-academic-slate uppercase">
+                        <span className="font-medium text-xs text-[var(--text-primary)]">{m.name}</span>
+                        <span className="text-[10px] font-sans px-2 py-0.5 bg-[var(--surface)] rounded-full text-[var(--text-tertiary)] uppercase">
                           Archived
                         </span>
                       </div>
-                      {m.description && <p className="text-xs text-academic-muted">{m.description}</p>}
+                      {m.description && <p className="text-xs text-[var(--text-tertiary)]">{m.description}</p>}
                     </div>
 
                     <div className="flex items-center gap-2">
                       {deleteConfirmId === m.id ? (
-                        <div className="flex items-center gap-1.5 bg-rose-50 p-1 rounded border border-rose-200 text-xs">
-                          <span className="text-[10px] font-mono text-rose-800 flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 bg-[var(--danger-soft)] p-1 rounded-md border border-[var(--danger)]/30 text-xs">
+                          <span className="text-[10px] font-sans text-[var(--danger)] flex items-center gap-1">
                             <ShieldAlert className="w-3 h-3" /> Delete template?
                           </span>
                           <button
                             onClick={() => handleDelete(m.id)}
-                            className="px-2 py-0.5 bg-rose-700 text-white font-mono text-[10px] rounded hover:bg-rose-800"
+                            className="px-2 py-0.5 bg-[var(--danger)] text-white font-sans text-[10px] rounded"
                           >
                             Yes
                           </button>
                           <button
                             onClick={() => setDeleteConfirmId(null)}
-                            className="px-2 py-0.5 bg-paper-200 text-paper-900 font-mono text-[10px] rounded"
+                            className="px-2 py-0.5 bg-[var(--surface)] text-[var(--text-primary)] font-sans text-[10px] rounded border border-[var(--border-default)]"
                           >
                             No
                           </button>
@@ -219,14 +219,14 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
                         <>
                           <button
                             onClick={() => handleRestore(m.id)}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-academic-navy text-white text-xs font-mono rounded hover:bg-academic-slate"
+                            className="flex items-center gap-1 px-2.5 py-1 bg-[var(--accent)] text-white text-xs font-sans rounded-md hover:bg-[var(--accent-hover)]"
                             title="Restore metric to active tracking"
                           >
                             <RotateCcw className="w-3 h-3" /> Restore
                           </button>
                           <button
                             onClick={() => setDeleteConfirmId(m.id)}
-                            className="p-1 text-academic-muted hover:text-rose-600 rounded"
+                            className="p-1 text-[var(--text-tertiary)] hover:text-[var(--danger)] rounded-md"
                             title="Permanently delete metric template definition"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -242,16 +242,16 @@ export const CustomMetricManager: React.FC<CustomMetricManagerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center pt-3 border-t border-paper-200 flex-shrink-0">
+        <div className="flex justify-between items-center pt-3 border-t border-[var(--border-default)] flex-shrink-0">
           <button
             onClick={onCreateNewMetric}
-            className="flex items-center gap-1.5 px-4 py-2 bg-paper-100 hover:bg-paper-200 border border-paper-300 text-paper-900 font-mono text-xs rounded transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] font-sans text-xs font-medium rounded-md transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" /> Create Custom Metric
+            <Plus className="w-3.5 h-3.5 text-[var(--accent)]" /> Create Custom Metric
           </button>
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-academic-navy text-white text-xs font-mono font-semibold rounded hover:bg-academic-slate transition-colors"
+            className="px-5 py-2 bg-[var(--accent)] text-white text-xs font-sans font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors"
           >
             Done
           </button>

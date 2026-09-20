@@ -23,36 +23,36 @@ export const SyncBanner: React.FC<SyncBannerProps> = ({ userId, onMigrationCompl
 
     try {
       const res = await migrateLocalStorageToSupabaseAsync(userId);
-      setStatusMsg(`Successfully migrated ${res.entriesMigrated} entries and ${res.metricsMigrated} custom metrics to your Supabase account!`);
+      setStatusMsg(`Successfully migrated ${res.entriesMigrated} entries and ${res.metricsMigrated} custom metrics to your account.`);
       setTimeout(() => {
         onMigrationComplete();
       }, 1500);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to migrate local data to Supabase.');
+      setErrorMsg(err.message || 'Failed to migrate local data to account.');
     } finally {
       setMigrating(false);
     }
   };
 
   return (
-    <div className="bg-academic-navy text-white p-4 rounded border border-academic-slate shadow-md my-4 font-mono text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="bg-[var(--warning-soft)] text-[var(--text-primary)] p-4 rounded-lg border border-[var(--warning)]/30 my-4 font-sans text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div className="space-y-1">
-        <div className="flex items-center gap-2 font-bold text-amber-300">
-          <CloudUpload className="w-4 h-4" /> Local Data Found ({localEntriesCount} entries)
+        <div className="flex items-center gap-2 font-medium text-[var(--warning)] text-sm">
+          <CloudUpload className="w-4 h-4" /> Unsynced Local Data Found ({localEntriesCount} entries)
         </div>
-        <p className="text-paper-200 font-sans text-xs">
-          You have local sleep entries recorded on this device. Migrate them to your Supabase account to sync across all your devices.
+        <p className="text-[var(--text-secondary)]">
+          You have local sleep entries recorded on this device. Migrate them to your account to sync across all your devices.
         </p>
-        {statusMsg && <div className="text-emerald-300 font-mono font-bold flex items-center gap-1.5 pt-1"><CheckCircle2 className="w-4 h-4" /> {statusMsg}</div>}
-        {errorMsg && <div className="text-rose-300 font-mono flex items-center gap-1.5 pt-1"><AlertCircle className="w-4 h-4" /> {errorMsg}</div>}
+        {statusMsg && <div className="text-[var(--success)] font-medium flex items-center gap-1.5 pt-1"><CheckCircle2 className="w-4 h-4" /> {statusMsg}</div>}
+        {errorMsg && <div className="text-[var(--danger)] font-medium flex items-center gap-1.5 pt-1"><AlertCircle className="w-4 h-4" /> {errorMsg}</div>}
       </div>
 
       <button
         onClick={handleMigrate}
         disabled={migrating}
-        className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-paper-900 font-mono font-bold rounded transition-colors whitespace-nowrap shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+        className="px-3.5 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium rounded-md transition-colors whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
       >
-        {migrating ? 'Migrating Data...' : 'Migrate Data to Supabase'}
+        {migrating ? 'Migrating...' : 'Migrate to Account'}
       </button>
     </div>
   );

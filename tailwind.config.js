@@ -5,30 +5,55 @@ module.exports = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
-        serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        serif: ['var(--font-serif)', 'Source Serif 4', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
       },
       colors: {
-        paper: {
-          50: '#FAF9F6',
-          100: '#F4F2EC',
-          200: '#E8E5DA',
-          300: '#D5D0C2',
-          800: '#2A2926',
-          900: '#1A1917',
+        canvas: 'var(--canvas)',
+        surface: {
+          DEFAULT: 'var(--surface)',
+          raised: 'var(--surface-raised)',
         },
-        academic: {
-          navy: '#1B2A4A',
-          slate: '#3A4750',
-          muted: '#606C74',
-          accent: '#2B579A',
-          accentHover: '#1E3E6E',
-          border: '#D1D5DB',
+        primary: {
+          DEFAULT: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          soft: 'var(--accent-soft)',
+        },
+        border: {
+          DEFAULT: 'var(--border-default)',
+          strong: 'var(--border-strong)',
+        },
+        semantic: {
+          success: 'var(--success)',
+          'success-soft': 'var(--success-soft)',
+          warning: 'var(--warning)',
+          'warning-soft': 'var(--warning-soft)',
+          danger: 'var(--danger)',
+          'danger-soft': 'var(--danger-soft)',
+          info: 'var(--info)',
+          'info-soft': 'var(--info-soft)',
         }
+      },
+      borderRadius: {
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        full: 'var(--radius-full)',
+      },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
       }
     },
   },
