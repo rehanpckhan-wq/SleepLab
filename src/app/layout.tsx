@@ -11,8 +11,11 @@ export const metadata: Metadata = {
     title: 'SleepLab',
   },
   icons: {
-    icon: '/icons/icon.svg',
-    apple: '/icons/icon-192.png',
+    icon: [
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: '/apple-icon.png',
   },
 };
 
