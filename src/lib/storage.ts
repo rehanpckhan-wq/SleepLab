@@ -802,13 +802,17 @@ export async function saveEntryAsync(
     const currentEntries = await fetchEntriesAsync(userId);
     const existingIndex = currentEntries.findIndex((e) => e.date === entry.date || e.id === entry.id);
 
-    let updatedEntries: DailyEntry[];
+    let finalEntry: DailyEntry;
     let isUpdate = false;
+    let oldDateToDelete: string | null = null;
 
     if (existingIndex >= 0) {
       isUpdate = true;
       const existing = currentEntries[existingIndex];
-      const updated: DailyEntry = {
+      if (existing.date !== entry.date) {
+        oldDateToDelete = existing.date;
+      }
+      finalEntry = {
         ...entry,
         id: existing.id,
         studyId: entry.studyId || existing.studyId || getActiveStudyId(),
@@ -817,11 +821,9 @@ export async function saveEntryAsync(
         createdAt: existing.createdAt,
         updatedAt: new Date().toISOString(),
       };
-      updatedEntries = [...currentEntries];
-      updatedEntries[existingIndex] = updated;
     } else {
       const newDayNum = currentEntries.length + 1;
-      const newEntry: DailyEntry = {
+      finalEntry = {
         ...entry,
         studyId: entry.studyId || getActiveStudyId(),
         dayNumber: newDayNum,
@@ -829,29 +831,49 @@ export async function saveEntryAsync(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      updatedEntries = [...currentEntries, newEntry];
     }
 
-    updatedEntries.sort((a, b) => a.date.localeCompare(b.date));
+    if (oldDateToDelete) {
+      await supabase.from('daily_entries').delete().eq('user_id', userId).eq('date', oldDateToDelete);
+    }
 
-    const reindexedRows = updatedEntries.map((e, idx) => {
-      const dayNum = idx + 1;
-      const finalEntry: DailyEntry = {
-        ...e,
-        dayNumber: dayNum,
-        reportId: e.reportId || generateReportId(e.date, dayNum),
-      };
-      return dailyEntryToDb(finalEntry, userId);
-    });
+    const dbRow = dailyEntryToDb(finalEntry, userId);
+    const client = supabase!;
+    
+    // Upsert helper with column compatibility fallbacks for older database schemas
+    const upsertWithFallbacks = async (row: any) => {
+      let { error } = await client.from('daily_entries').upsert(row, { onConflict: 'user_id, date' });
+      
+      // If error is due to missing columns in legacy DB schemas, remove them and retry
+      if (error && (error.message?.includes('muted_metrics') || error.message?.includes('study_id'))) {
+        const cleanedRow = { ...row };
+        if (error.message?.includes('muted_metrics')) delete cleanedRow.muted_metrics;
+        if (error.message?.includes('study_id')) delete cleanedRow.study_id;
+        const retry = await client.from('daily_entries').upsert(cleanedRow, { onConflict: 'user_id, date' });
+        if (!retry.error) return null;
+        error = retry.error;
+      }
 
-    const { error } = await supabase.from('daily_entries').upsert(reindexedRows, { onConflict: 'user_id, date' });
+      if (error) {
+        let retry = await client.from('daily_entries').upsert(row, { onConflict: 'id' });
+        if (retry.error && (retry.error.message?.includes('muted_metrics') || retry.error.message?.includes('study_id'))) {
+          const cleanedRow = { ...row };
+          if (retry.error.message?.includes('muted_metrics')) delete cleanedRow.muted_metrics;
+          if (retry.error.message?.includes('study_id')) delete cleanedRow.study_id;
+          retry = await client.from('daily_entries').upsert(cleanedRow, { onConflict: 'id' });
+        }
+        error = retry.error;
+      }
+      return error;
+    };
+
+    const error = await upsertWithFallbacks(dbRow);
     if (error) throw error;
 
-    const saved = updatedEntries.find((e) => e.date === entry.date || e.id === entry.id) || entry;
-    return { entry: saved, isUpdate };
-  } catch (err) {
-    console.error('Failed to save entry to Supabase:', err);
-    throw err;
+    return { entry: finalEntry, isUpdate };
+  } catch (err: any) {
+    console.error('Failed to save entry to Supabase:', err?.message || err?.details || err);
+    throw new Error(err?.message || err?.details || 'Failed to save entry to Supabase');
   }
 }
 

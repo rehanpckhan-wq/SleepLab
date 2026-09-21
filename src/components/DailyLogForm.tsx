@@ -263,6 +263,8 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
 
     const entryToSave: DailyEntry = {
       id: initialEntry?.id || `entry-${date}`,
+      studyId: initialEntry?.studyId,
+      reportId: initialEntry?.reportId,
       dayNumber,
       date,
       sleep: {
@@ -303,7 +305,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     };
 
     try {
-      const { isUpdate } = await saveEntryAsync(entryToSave, userId);
+      const { entry: savedEntry, isUpdate } = await saveEntryAsync(entryToSave, userId);
 
       setSaveSuccessMsg(
         isUpdate
@@ -312,7 +314,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       );
 
       setTimeout(() => {
-        onSaved(entryToSave);
+        onSaved(savedEntry || entryToSave);
       }, 400);
     } catch (err: any) {
       setSaveErrorMsg(err.message || 'Failed to save entry. Please check your network connection.');
@@ -322,6 +324,14 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+        {/* Save Error Banner */}
+        {saveErrorMsg && (
+          <div className="bg-[var(--danger-soft)] border border-[var(--danger)]/30 text-[var(--danger)] p-4 rounded-lg flex items-center gap-3 font-medium text-xs">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{saveErrorMsg}</span>
+          </div>
+        )}
+
         {/* Save Success Banner */}
         {saveSuccessMsg && (
           <div className="bg-[var(--success-soft)] border border-[var(--success)]/30 text-[var(--success)] p-4 rounded-lg flex items-center gap-3 font-medium text-xs">
