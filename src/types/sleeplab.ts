@@ -2,18 +2,7 @@ export type AwakeningReason = 'Pee' | 'Dream' | 'Noise' | 'Unknown' | 'Other';
 
 export type SleepyBeforeBedOption = 'Yes' | 'Somewhat' | 'No';
 
-export type ConfoundingFactor =
-  | 'Heavy Leg Day'
-  | 'Upper Body Training'
-  | 'Zone 2 Cardio'
-  | 'Zone 4–5 Cardio'
-  | 'Late Caffeine'
-  | 'Stress'
-  | 'Late Meal'
-  | 'Screen Exposure Before Bed'
-  | 'Illness'
-  | 'Travel'
-  | 'Other';
+export type ConfoundingFactor = string;
 
 export type CustomMetricType = 'checkbox' | 'slider' | 'number' | 'time' | 'duration' | 'text';
 
@@ -89,6 +78,7 @@ export interface DailyEntry {
   afternoon: AfternoonData;
   evening: EveningData;
   confounders: ConfoundingFactor[];
+  mutedMetrics?: string[]; // Keys of metrics muted/turned off for this entry (e.g. 'workoutEnergy', 'sleepInertia')
   additionalMetrics?: Record<string, any>; // User-defined custom metric values keyed by metric.id
   calculatedMetrics: CalculatedMetrics;
   createdAt: string;

@@ -198,22 +198,30 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
             02 — Morning Assessment (~45m post-wake)
           </h2>
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Morning Alertness</span>
-              <span className="font-mono font-bold">{entry.morning.morningAlertness} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Sleep Inertia</span>
-              <span className="font-mono font-bold">{entry.morning.sleepInertia} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Subjective Mood</span>
-              <span className="font-mono font-bold">{entry.morning.mood} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Daily Motivation</span>
-              <span className="font-mono font-bold">{entry.morning.motivation} / 10</span>
-            </div>
+            {!entry.mutedMetrics?.includes('morningAlertness') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Morning Alertness</span>
+                <span className="font-mono font-bold">{entry.morning.morningAlertness} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('sleepInertia') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Sleep Inertia</span>
+                <span className="font-mono font-bold">{entry.morning.sleepInertia} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('mood') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Subjective Mood</span>
+                <span className="font-mono font-bold">{entry.morning.mood} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('motivation') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Daily Motivation</span>
+                <span className="font-mono font-bold">{entry.morning.motivation} / 10</span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -223,22 +231,30 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
             03 — Physical & Subjective Recovery
           </h2>
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Skin Health Observation</span>
-              <span className="font-mono font-bold">{entry.recovery.skinHealth} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Muscle Fullness</span>
-              <span className="font-mono font-bold">{entry.recovery.muscleFullness} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Workout Energy</span>
-              <span className="font-mono font-bold">{entry.recovery.workoutEnergy} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Body Freshness</span>
-              <span className="font-mono font-bold">{entry.recovery.bodyFreshness} / 10</span>
-            </div>
+            {!entry.mutedMetrics?.includes('skinHealth') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Skin Health Observation</span>
+                <span className="font-mono font-bold">{entry.recovery.skinHealth} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('muscleFullness') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Muscle Fullness</span>
+                <span className="font-mono font-bold">{entry.recovery.muscleFullness} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('workoutEnergy') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Workout Energy</span>
+                <span className="font-mono font-bold">{entry.recovery.workoutEnergy} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('bodyFreshness') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Body Freshness</span>
+                <span className="font-mono font-bold">{entry.recovery.bodyFreshness} / 10</span>
+              </div>
+            )}
           </div>
           <div className="py-1 px-2 border border-paper-300 bg-paper-50 text-[10px] font-mono text-academic-slate rounded">
             <strong>Recovery Index Source:</strong> Alertness ({entry.morning.morningAlertness}) + Mood ({entry.morning.mood}) + Skin ({entry.recovery.skinHealth}) + Muscle ({entry.recovery.muscleFullness}) + Afternoon ({entry.afternoon.afternoonEnergy}) = <strong>{entry.calculatedMetrics.recoveryIndexScore} / 50 ({entry.calculatedMetrics.recoveryIndexPercentage}%)</strong>.
@@ -251,21 +267,27 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
             04 — Afternoon Functioning (14:00 - 16:00)
           </h2>
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Afternoon Energy</span>
-              <span className="font-mono font-bold">{entry.afternoon.afternoonEnergy} / 10</span>
-            </div>
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-              <span>Cognitive Focus</span>
-              <span className="font-mono font-bold">{entry.afternoon.focus} / 10</span>
-            </div>
+            {!entry.mutedMetrics?.includes('afternoonEnergy') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Afternoon Energy</span>
+                <span className="font-mono font-bold">{entry.afternoon.afternoonEnergy} / 10</span>
+              </div>
+            )}
+            {!entry.mutedMetrics?.includes('focus') && (
+              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
+                <span>Cognitive Focus</span>
+                <span className="font-mono font-bold">{entry.afternoon.focus} / 10</span>
+              </div>
+            )}
           </div>
-          <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center text-[11px]">
-            <span>Experienced Afternoon Slump?</span>
-            <span className="font-mono font-bold">
-              {entry.afternoon.afternoonSlump ? 'Yes (Slump Observed)' : 'No (Steady Energy)'}
-            </span>
-          </div>
+          {!entry.mutedMetrics?.includes('afternoonSlump') && (
+            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center text-[11px]">
+              <span>Experienced Afternoon Slump?</span>
+              <span className="font-mono font-bold">
+                {entry.afternoon.afternoonSlump ? 'Yes (Slump Observed)' : 'No (Steady Energy)'}
+              </span>
+            </div>
+          )}
         </section>
 
         {/* 05 — EVENING READINESS & QUALITATIVE NOTES */}

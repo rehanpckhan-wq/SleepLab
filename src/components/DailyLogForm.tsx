@@ -14,10 +14,12 @@ import {
   calculateDayNumber,
   getStoredStartDate,
   fetchCustomMetricDefinitionsAsync,
+  getConfounderDefinitions,
 } from '@/lib/storage';
 import { CustomMetricInput } from './CustomMetricInput';
 import { CustomMetricBuilder } from './CustomMetricBuilder';
 import { CustomMetricManager } from './CustomMetricManager';
+import { ConfounderManagerModal } from './ConfounderManagerModal';
 import {
   Save,
   AlertCircle,
@@ -31,6 +33,8 @@ import {
   Sliders,
   Plus,
   Settings,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface DailyLogFormProps {
@@ -134,6 +138,26 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<CustomMetricDefinition | null>(null);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isConfounderManagerOpen, setIsConfounderManagerOpen] = useState(false);
+
+  // Confounders definitions state
+  const [confounderOptions, setConfounderOptions] = useState<string[]>([]);
+
+  // Collapsed sections state
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  // Muted metrics state
+  const [mutedMetrics, setMutedMetrics] = useState<string[]>(initialEntry?.mutedMetrics || []);
+
+  const toggleSectionCollapse = (sectionKey: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
+  };
+
+  const handleToggleMute = (metricId: string) => {
+    setMutedMetrics((prev) =>
+      prev.includes(metricId) ? prev.filter((m) => m !== metricId) : [...prev, metricId]
+    );
+  };
 
   // Feedback banner state
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -142,6 +166,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     const loaded = await fetchCustomMetricDefinitionsAsync(userId);
     setCustomMetricDefs(loaded);
   };
+
+  useEffect(() => {
+    setConfounderOptions(getConfounderDefinitions());
+  }, []);
 
   useEffect(() => {
     refreshCustomMetrics();
@@ -178,6 +206,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         setNotes(existing.evening.notes);
         setConfounders(existing.confounders);
         setAdditionalMetrics(existing.additionalMetrics || {});
+        setMutedMetrics(existing.mutedMetrics || []);
       } else {
         setIsEditingExisting(false);
       }
@@ -267,6 +296,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       },
       confounders,
       additionalMetrics,
+      mutedMetrics,
       calculatedMetrics,
       createdAt: initialEntry?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -356,387 +386,501 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         </div>
 
         {/* SECTION 1: SLEEP DATA */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-5">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <Moon className="w-4 h-4 text-[var(--accent)]" />
-            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">1. Sleep Parameters</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Lights Out Time
-              </label>
-              <input
-                type="time"
-                required
-                value={lightsOut}
-                onChange={(e) => setLightsOut(e.target.value)}
-                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-              />
-              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Estimated Sleep Time
-              </label>
-              <input
-                type="time"
-                required
-                value={estimatedSleepTime}
-                onChange={(e) => setEstimatedSleepTime(e.target.value)}
-                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-              />
-              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Natural / Final Wake Time
-              </label>
-              <input
-                type="time"
-                required
-                value={naturalWakeTime}
-                onChange={(e) => setNaturalWakeTime(e.target.value)}
-                className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-              />
-              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
-            </div>
-          </div>
-
-          {/* Calculated Sleep Duration Readout */}
-          <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('sleep')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[var(--accent)]" />
-              <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
-                Estimated Total Sleep Duration:
-              </span>
+              <Moon className="w-4 h-4 text-[var(--accent)]" />
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                1. Sleep Parameters
+              </h2>
             </div>
-            <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
-              {calculatedMetrics.totalSleepFormatted}
-              <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
-                ({calculatedMetrics.totalSleepMinutes} minutes)
-              </span>
-            </div>
+            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+              {collapsedSections['sleep'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            </button>
           </div>
 
-          {/* Alarm & Awakenings */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                Woke Up to Alarm?
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+          {!collapsedSections['sleep'] && (
+            <div className="space-y-5 pt-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Lights Out Time
+                  </label>
                   <input
-                    type="radio"
-                    name="alarmWake"
-                    checked={alarmWake === true}
-                    onChange={() => setAlarmWake(true)}
-                    className="accent-[var(--accent)]"
+                    type="time"
+                    required
+                    value={lightsOut}
+                    onChange={(e) => setLightsOut(e.target.value)}
+                    className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
                   />
-                  Yes (Alarm)
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Estimated Sleep Time
+                  </label>
                   <input
-                    type="radio"
-                    name="alarmWake"
-                    checked={alarmWake === false}
-                    onChange={() => setAlarmWake(false)}
-                    className="accent-[var(--accent)]"
+                    type="time"
+                    required
+                    value={estimatedSleepTime}
+                    onChange={(e) => setEstimatedSleepTime(e.target.value)}
+                    className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
                   />
-                  No (Natural Wake)
-                </label>
-              </div>
-            </div>
+                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
+                </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Number of Awakenings
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={20}
-                value={numberOfAwakenings}
-                onChange={(e) => setNumberOfAwakenings(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-32 border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-              />
-            </div>
-          </div>
-
-          {/* Awakening Reasons */}
-          {numberOfAwakenings > 0 && (
-            <div className="pt-2 border-t border-[var(--border-default)]">
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                Awakening Reason(s)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_AWAKENING_REASONS.map((reason) => {
-                  const isSelected = awakeningReasons.includes(reason);
-                  return (
-                    <button
-                      key={reason}
-                      type="button"
-                      onClick={() => handleAwakeningReasonToggle(reason)}
-                      className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
-                        isSelected
-                          ? 'bg-[var(--accent)] text-white border-transparent'
-                          : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {reason}
-                    </button>
-                  );
-                })}
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Natural / Final Wake Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={naturalWakeTime}
+                    onChange={(e) => setNaturalWakeTime(e.target.value)}
+                    className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                  />
+                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
+                </div>
               </div>
+
+              {/* Calculated Sleep Duration Readout */}
+              <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+                    Estimated Total Sleep Duration:
+                  </span>
+                </div>
+                <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
+                  {calculatedMetrics.totalSleepFormatted}
+                  <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
+                    ({calculatedMetrics.totalSleepMinutes} minutes)
+                  </span>
+                </div>
+              </div>
+
+              {/* Alarm & Awakenings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
+                    Woke Up to Alarm?
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+                      <input
+                        type="radio"
+                        name="alarmWake"
+                        checked={alarmWake === true}
+                        onChange={() => setAlarmWake(true)}
+                        className="accent-[var(--accent)]"
+                      />
+                      Yes (Alarm)
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+                      <input
+                        type="radio"
+                        name="alarmWake"
+                        checked={alarmWake === false}
+                        onChange={() => setAlarmWake(false)}
+                        className="accent-[var(--accent)]"
+                      />
+                      No (Natural Wake)
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Number of Awakenings
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={numberOfAwakenings}
+                    onChange={(e) => setNumberOfAwakenings(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-32 border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
+                  />
+                </div>
+              </div>
+
+              {/* Awakening Reasons */}
+              {numberOfAwakenings > 0 && (
+                <div className="pt-2 border-t border-[var(--border-default)]">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
+                    Awakening Reason(s)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_AWAKENING_REASONS.map((reason) => {
+                      const isSelected = awakeningReasons.includes(reason);
+                      return (
+                        <button
+                          key={reason}
+                          type="button"
+                          onClick={() => handleAwakeningReasonToggle(reason)}
+                          className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
+                            isSelected
+                              ? 'bg-[var(--accent)] text-white border-transparent'
+                              : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {reason}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
 
         {/* SECTION 2: MORNING ASSESSMENT */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <Sun className="w-4 h-4 text-[var(--warning)]" />
-            <div>
-              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">2. Morning Assessment</h2>
-              <p className="text-xs text-[var(--text-tertiary)]">
-                Logged ~45 minutes post-wake, after standard morning routine.
-              </p>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('morning')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <Sun className="w-4 h-4 text-[var(--warning)]" />
+              <div>
+                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                  2. Morning Assessment
+                </h2>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Logged ~45 minutes post-wake, after standard morning routine.
+                </p>
+              </div>
             </div>
+            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+              {collapsedSections['morning'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SliderField
-              label="Morning Alertness"
-              sublabel="Degree of sharpness and wakefulness (Contributes to Recovery Index)"
-              value={morningAlertness}
-              onChange={setMorningAlertness}
-              minLabel="1 (Brain fog)"
-              maxLabel="10 (Fully sharp)"
-            />
-            <SliderField
-              label="Sleep Inertia"
-              sublabel="Heavy grogginess or difficulty transitioning out of sleep"
-              value={sleepInertia}
-              onChange={setSleepInertia}
-              minLabel="1 (Clear wakefulness)"
-              maxLabel="10 (Severe grogginess)"
-            />
-            <SliderField
-              label="Mood"
-              sublabel="Subjective emotional state upon starting day (Contributes to Recovery Index)"
-              value={mood}
-              onChange={setMood}
-              minLabel="1 (Irritable/Low)"
-              maxLabel="10 (Positive/Upbeat)"
-            />
-            <SliderField
-              label="Motivation"
-              sublabel="Drive and enthusiasm to undertake daily goals"
-              value={motivation}
-              onChange={setMotivation}
-              minLabel="1 (Apathetic)"
-              maxLabel="10 (Driven)"
-            />
-          </div>
+          {!collapsedSections['morning'] && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5">
+              <SliderField
+                label="Morning Alertness"
+                sublabel="Degree of sharpness and wakefulness (Contributes to Recovery Index)"
+                value={morningAlertness}
+                onChange={setMorningAlertness}
+                minLabel="1 (Brain fog)"
+                maxLabel="10 (Fully sharp)"
+                isMuted={mutedMetrics.includes('morningAlertness')}
+                onToggleMute={() => handleToggleMute('morningAlertness')}
+              />
+              <SliderField
+                label="Sleep Inertia"
+                sublabel="Heavy grogginess or difficulty transitioning out of sleep"
+                value={sleepInertia}
+                onChange={setSleepInertia}
+                minLabel="1 (Clear wakefulness)"
+                maxLabel="10 (Severe grogginess)"
+                isMuted={mutedMetrics.includes('sleepInertia')}
+                onToggleMute={() => handleToggleMute('sleepInertia')}
+              />
+              <SliderField
+                label="Mood"
+                sublabel="Subjective emotional state upon starting day (Contributes to Recovery Index)"
+                value={mood}
+                onChange={setMood}
+                minLabel="1 (Irritable/Low)"
+                maxLabel="10 (Positive/Upbeat)"
+                isMuted={mutedMetrics.includes('mood')}
+                onToggleMute={() => handleToggleMute('mood')}
+              />
+              <SliderField
+                label="Motivation"
+                sublabel="Drive and enthusiasm to undertake daily goals"
+                value={motivation}
+                onChange={setMotivation}
+                minLabel="1 (Apathetic)"
+                maxLabel="10 (Driven)"
+                isMuted={mutedMetrics.includes('motivation')}
+                onToggleMute={() => handleToggleMute('motivation')}
+              />
+            </div>
+          )}
         </section>
 
         {/* SECTION 3: RECOVERY */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <Battery className="w-4 h-4 text-[var(--success)]" />
-            <div>
-              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">3. Physical & Subjective Recovery</h2>
-              <p className="text-xs text-[var(--text-tertiary)]">
-                Subjective physiological observations. Not objective clinical telemetry.
-              </p>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('recovery')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <Battery className="w-4 h-4 text-[var(--success)]" />
+              <div>
+                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                  3. Physical & Subjective Recovery
+                </h2>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Subjective physiological observations. Not objective clinical telemetry.
+                </p>
+              </div>
             </div>
+            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+              {collapsedSections['recovery'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SliderField
-              label="Skin Health"
-              sublabel="Subjective clarity, hydration, and tone (Contributes to Recovery Index)"
-              value={skinHealth}
-              onChange={setSkinHealth}
-              minLabel="1 (Dull/Inflamed)"
-              maxLabel="10 (Clear/Vibrant)"
-            />
-            <SliderField
-              label="Muscle Fullness"
-              sublabel="Perceived glycogen fullness & physical tone (Contributes to Recovery Index)"
-              value={muscleFullness}
-              onChange={setMuscleFullness}
-              minLabel="1 (Flat/Depleted)"
-              maxLabel="10 (Full/Pumped)"
-            />
-            <SliderField
-              label="Workout Energy"
-              sublabel="Physical readiness for physical exertion or training"
-              value={workoutEnergy}
-              onChange={setWorkoutEnergy}
-              minLabel="1 (Exhausted)"
-              maxLabel="10 (Peak readiness)"
-            />
-            <SliderField
-              label="Body Freshness"
-              sublabel="Absence of systemic soreness or physical fatigue"
-              value={bodyFreshness}
-              onChange={setBodyFreshness}
-              minLabel="1 (Heavy soreness)"
-              maxLabel="10 (Completely fresh)"
-            />
-          </div>
+          {!collapsedSections['recovery'] && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5">
+              <SliderField
+                label="Skin Health"
+                sublabel="Subjective clarity, hydration, and tone (Contributes to Recovery Index)"
+                value={skinHealth}
+                onChange={setSkinHealth}
+                minLabel="1 (Dull/Inflamed)"
+                maxLabel="10 (Clear/Vibrant)"
+                isMuted={mutedMetrics.includes('skinHealth')}
+                onToggleMute={() => handleToggleMute('skinHealth')}
+              />
+              <SliderField
+                label="Muscle Fullness"
+                sublabel="Perceived glycogen fullness & physical tone (Contributes to Recovery Index)"
+                value={muscleFullness}
+                onChange={setMuscleFullness}
+                minLabel="1 (Flat/Depleted)"
+                maxLabel="10 (Full/Pumped)"
+                isMuted={mutedMetrics.includes('muscleFullness')}
+                onToggleMute={() => handleToggleMute('muscleFullness')}
+              />
+              <SliderField
+                label="Workout Energy"
+                sublabel="Physical readiness for physical exertion or training"
+                value={workoutEnergy}
+                onChange={setWorkoutEnergy}
+                minLabel="1 (Exhausted)"
+                maxLabel="10 (Peak readiness)"
+                isMuted={mutedMetrics.includes('workoutEnergy')}
+                onToggleMute={() => handleToggleMute('workoutEnergy')}
+              />
+              <SliderField
+                label="Body Freshness"
+                sublabel="Absence of systemic soreness or physical fatigue"
+                value={bodyFreshness}
+                onChange={setBodyFreshness}
+                minLabel="1 (Heavy soreness)"
+                maxLabel="10 (Completely fresh)"
+                isMuted={mutedMetrics.includes('bodyFreshness')}
+                onToggleMute={() => handleToggleMute('bodyFreshness')}
+              />
+            </div>
+          )}
         </section>
 
         {/* SECTION 4: AFTERNOON */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <Sun className="w-4 h-4 text-[var(--accent)]" />
-            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">4. Afternoon Functioning</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SliderField
-              label="Afternoon Energy"
-              sublabel="Sustained physical energy around 14:00 - 16:00 (Contributes to Recovery Index)"
-              value={afternoonEnergy}
-              onChange={setAfternoonEnergy}
-              minLabel="1 (Drained)"
-              maxLabel="10 (High vitality)"
-            />
-            <SliderField
-              label="Cognitive Focus"
-              sublabel="Ability to maintain mental concentration without brain fog"
-              value={focus}
-              onChange={setFocus}
-              minLabel="1 (Distracted)"
-              maxLabel="10 (Laser focus)"
-            />
-          </div>
-
-          <div className="pt-2">
-            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-              Experienced Afternoon Slump?
-            </label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                <input
-                  type="radio"
-                  name="afternoonSlump"
-                  checked={afternoonSlump === true}
-                  onChange={() => setAfternoonSlump(true)}
-                  className="accent-[var(--accent)]"
-                />
-                Yes (Severe drop in energy)
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                <input
-                  type="radio"
-                  name="afternoonSlump"
-                  checked={afternoonSlump === false}
-                  onChange={() => setAfternoonSlump(false)}
-                  className="accent-[var(--accent)]"
-                />
-                No (Steady energy)
-              </label>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('afternoon')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <Sun className="w-4 h-4 text-[var(--accent)]" />
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                4. Afternoon Functioning
+              </h2>
             </div>
+            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+              {collapsedSections['afternoon'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            </button>
           </div>
+
+          {!collapsedSections['afternoon'] && (
+            <div className="space-y-4 pt-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SliderField
+                  label="Afternoon Energy"
+                  sublabel="Sustained physical energy around 14:00 - 16:00 (Contributes to Recovery Index)"
+                  value={afternoonEnergy}
+                  onChange={setAfternoonEnergy}
+                  minLabel="1 (Drained)"
+                  maxLabel="10 (High vitality)"
+                  isMuted={mutedMetrics.includes('afternoonEnergy')}
+                  onToggleMute={() => handleToggleMute('afternoonEnergy')}
+                />
+                <SliderField
+                  label="Cognitive Focus"
+                  sublabel="Ability to maintain mental concentration without brain fog"
+                  value={focus}
+                  onChange={setFocus}
+                  minLabel="1 (Distracted)"
+                  maxLabel="10 (Laser focus)"
+                  isMuted={mutedMetrics.includes('focus')}
+                  onToggleMute={() => handleToggleMute('focus')}
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
+                  Experienced Afternoon Slump?
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+                    <input
+                      type="radio"
+                      name="afternoonSlump"
+                      checked={afternoonSlump === true}
+                      onChange={() => setAfternoonSlump(true)}
+                      className="accent-[var(--accent)]"
+                    />
+                    Yes (Severe drop in energy)
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
+                    <input
+                      type="radio"
+                      name="afternoonSlump"
+                      checked={afternoonSlump === false}
+                      onChange={() => setAfternoonSlump(false)}
+                      className="accent-[var(--accent)]"
+                    />
+                    No (Steady energy)
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* SECTION 5: EVENING & NOTES */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <Moon className="w-4 h-4 text-[var(--text-primary)]" />
-            <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">5. Evening Readiness & Notes</h2>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-              Did I naturally feel sleepy before bedtime?
-            </label>
-            <div className="flex flex-wrap gap-4">
-              {(['Yes', 'Somewhat', 'No'] as SleepyBeforeBedOption[]).map((option) => (
-                <label
-                  key={option}
-                  className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]"
-                >
-                  <input
-                    type="radio"
-                    name="sleepyBeforeBed"
-                    checked={naturallySleepyBeforeBed === option}
-                    onChange={() => setNaturallySleepyBeforeBed(option)}
-                    className="accent-[var(--accent)]"
-                  />
-                  {option}
-                </label>
-              ))}
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('evening')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <Moon className="w-4 h-4 text-[var(--text-primary)]" />
+              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                5. Evening Readiness & Notes
+              </h2>
             </div>
+            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+              {collapsedSections['evening'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-              Qualitative Observations / Daily Notes
-            </label>
-            <textarea
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Record anything noteworthy: subjective reflections, stress, diet variations, environment..."
-              className="w-full border border-[var(--border-default)] rounded-md p-3 text-xs font-serif bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-            />
-          </div>
+          {!collapsedSections['evening'] && (
+            <div className="space-y-4 pt-5">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
+                  Did I naturally feel sleepy before bedtime?
+                </label>
+                <div className="flex flex-wrap gap-4">
+                  {(['Yes', 'Somewhat', 'No'] as SleepyBeforeBedOption[]).map((option) => (
+                    <label
+                      key={option}
+                      className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]"
+                    >
+                      <input
+                        type="radio"
+                        name="sleepyBeforeBed"
+                        checked={naturallySleepyBeforeBed === option}
+                        onChange={() => setNaturallySleepyBeforeBed(option)}
+                        className="accent-[var(--accent)]"
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Qualitative Observations / Daily Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Record anything noteworthy: subjective reflections, stress, diet variations, environment..."
+                  className="w-full border border-[var(--border-default)] rounded-md p-3 text-xs font-serif bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                />
+              </div>
+            </div>
+          )}
         </section>
 
         {/* SECTION 6: CONFOUNDING FACTORS */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
-            <ShieldAlert className="w-4 h-4 text-[var(--warning)]" />
-            <div>
-              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">
-                6. Potential Confounding Factors
-              </h2>
-              <p className="text-xs text-[var(--text-tertiary)]">
-                Select variables that occurred today.
-              </p>
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('confounders')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-[var(--warning)]" />
+              <div>
+                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                  6. Potential Confounding Factors
+                </h2>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Select variables that occurred today.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsConfounderManagerOpen(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-secondary)] font-sans text-xs rounded-md transition-colors"
+                title="Manage custom confounding factors"
+              >
+                <Settings className="w-3.5 h-3.5" /> Manage Factors
+              </button>
+              <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+                {collapsedSections['confounders'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-            {ALL_CONFOUNDERS.map((item) => {
-              const isChecked = confounders.includes(item);
-              return (
-                <label
-                  key={item}
-                  className={`flex items-center gap-2 p-2.5 rounded-md border text-xs font-sans cursor-pointer transition-colors ${
-                    isChecked
-                      ? 'bg-[var(--accent)] text-white border-transparent font-medium'
-                      : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => handleConfounderToggle(item)}
-                    className="rounded border-[var(--border-default)] text-[var(--accent)] focus:ring-0"
-                  />
-                  <span className="select-none">{item}</span>
-                </label>
-              );
-            })}
-          </div>
+          {!collapsedSections['confounders'] && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-5">
+              {confounderOptions.map((item) => {
+                const isChecked = confounders.includes(item);
+                return (
+                  <label
+                    key={item}
+                    className={`flex items-center gap-2 p-2.5 rounded-md border text-xs font-sans cursor-pointer transition-colors ${
+                      isChecked
+                        ? 'bg-[var(--accent)] text-white border-transparent font-medium'
+                        : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleConfounderToggle(item)}
+                      className="rounded border-[var(--border-default)] text-[var(--accent)] focus:ring-0"
+                    />
+                    <span className="select-none">{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* SECTION 7: ADDITIONAL (USER-DEFINED CUSTOM METRICS) */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-default)] pb-3">
+        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
+          <div
+            onClick={() => toggleSectionCollapse('custom')}
+            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+          >
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-[var(--accent)]" />
               <div>
-                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)]">7. Custom Variables</h2>
+                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                  7. Custom Variables
+                </h2>
                 <p className="text-xs text-[var(--text-tertiary)]">
                   User-defined experimental variables created for custom tracking.
                 </p>
@@ -746,7 +890,8 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEditingMetric(null);
                   setIsBuilderOpen(true);
                 }}
@@ -756,41 +901,51 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setIsManagerOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsManagerOpen(true);
+                }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-secondary)] font-sans text-xs rounded-md transition-colors"
                 title="Manage custom metric templates & ordering"
               >
                 <Settings className="w-3.5 h-3.5" /> Manage
               </button>
+              <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+                {collapsedSections['custom'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
-          {activeCustomMetrics.length === 0 ? (
-            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-6 text-center space-y-3">
-              <p className="text-xs font-sans text-[var(--text-tertiary)] italic">
-                No additional custom metrics created yet.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingMetric(null);
-                  setIsBuilderOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white font-sans text-xs font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" /> Create Custom Metric
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {activeCustomMetrics.map((def) => (
-                <CustomMetricInput
-                  key={def.id}
-                  definition={def}
-                  value={additionalMetrics[def.id]}
-                  onChange={(newVal) => handleCustomMetricChange(def.id, newVal)}
-                />
-              ))}
+          {!collapsedSections['custom'] && (
+            <div className="pt-5">
+              {activeCustomMetrics.length === 0 ? (
+                <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-6 text-center space-y-3">
+                  <p className="text-xs font-sans text-[var(--text-tertiary)] italic">
+                    No additional custom metrics created yet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMetric(null);
+                      setIsBuilderOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white font-sans text-xs font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Create Custom Metric
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeCustomMetrics.map((def) => (
+                    <CustomMetricInput
+                      key={def.id}
+                      definition={def}
+                      value={additionalMetrics[def.id]}
+                      onChange={(newVal) => handleCustomMetricChange(def.id, newVal)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -814,6 +969,13 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           </button>
         </div>
       </form>
+
+      {/* CONFOUNDER MANAGER MODAL */}
+      <ConfounderManagerModal
+        isOpen={isConfounderManagerOpen}
+        onClose={() => setIsConfounderManagerOpen(false)}
+        onConfoundersChanged={(updatedList) => setConfounderOptions(updatedList)}
+      />
 
       {/* CUSTOM METRIC BUILDER MODAL */}
       {isBuilderOpen && (

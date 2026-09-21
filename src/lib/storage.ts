@@ -615,6 +615,61 @@ export function deleteCustomMetricDefinition(id: string): void {
 /* SUPABASE ASYNC PERSISTENCE LAYER                                         */
 /* ========================================================================= */
 
+const CUSTOM_CONFOUNDERS_KEY = 'sleeplab_custom_confounders_v1';
+
+export const DEFAULT_CONFOUNDERS: string[] = [
+  'Heavy Leg Day',
+  'Upper Body Training',
+  'Zone 2 Cardio',
+  'Zone 4–5 Cardio',
+  'Late Caffeine',
+  'Stress',
+  'Late Meal',
+  'Screen Exposure Before Bed',
+  'Illness',
+  'Travel',
+  'Other',
+];
+
+export function getConfounderDefinitions(): string[] {
+  if (typeof window === 'undefined') return DEFAULT_CONFOUNDERS;
+  try {
+    const raw = localStorage.getItem(CUSTOM_CONFOUNDERS_KEY);
+    if (!raw) {
+      localStorage.setItem(CUSTOM_CONFOUNDERS_KEY, JSON.stringify(DEFAULT_CONFOUNDERS));
+      return DEFAULT_CONFOUNDERS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_CONFOUNDERS;
+  } catch (e) {
+    return DEFAULT_CONFOUNDERS;
+  }
+}
+
+export function addConfounderDefinition(name: string): string[] {
+  const current = getConfounderDefinitions();
+  const trimmed = name.trim();
+  if (!trimmed || current.includes(trimmed)) return current;
+  const updated = [...current, trimmed];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_CONFOUNDERS_KEY, JSON.stringify(updated));
+    } catch (e) {}
+  }
+  return updated;
+}
+
+export function removeConfounderDefinition(name: string): string[] {
+  const current = getConfounderDefinitions();
+  const updated = current.filter((c) => c !== name);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_CONFOUNDERS_KEY, JSON.stringify(updated));
+    } catch (e) {}
+  }
+  return updated;
+}
+
 function dbToDailyEntry(row: any): DailyEntry {
   return {
     id: row.id,
@@ -628,6 +683,7 @@ function dbToDailyEntry(row: any): DailyEntry {
     afternoon: row.afternoon,
     evening: row.evening,
     confounders: row.confounders || [],
+    mutedMetrics: row.muted_metrics || [],
     additionalMetrics: row.additional_metrics || {},
     calculatedMetrics: row.calculated_metrics,
     createdAt: row.created_at,
@@ -649,6 +705,7 @@ function dailyEntryToDb(entry: DailyEntry, userId: string): any {
     afternoon: entry.afternoon,
     evening: entry.evening,
     confounders: entry.confounders || [],
+    muted_metrics: entry.mutedMetrics || [],
     additional_metrics: entry.additionalMetrics || {},
     calculated_metrics: entry.calculatedMetrics,
     updated_at: new Date().toISOString(),

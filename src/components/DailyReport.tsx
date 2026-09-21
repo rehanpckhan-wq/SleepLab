@@ -364,134 +364,160 @@ export const DailyReport: React.FC<DailyReportProps> = ({
           </section>
 
           {/* 02 — MORNING ASSESSMENT */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-              <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                <span className="font-sans text-xs text-[var(--accent)] font-medium">02 —</span> Morning Assessment
-              </h2>
-              <span className="text-xs font-sans text-[var(--text-tertiary)]">~45 mins post-wake</span>
-            </div>
+          {(!entry.mutedMetrics?.includes('morningAlertness') ||
+            !entry.mutedMetrics?.includes('sleepInertia') ||
+            !entry.mutedMetrics?.includes('mood') ||
+            !entry.mutedMetrics?.includes('motivation')) && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
+                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                  <span className="font-sans text-xs text-[var(--accent)] font-medium">02 —</span> Morning Assessment
+                </h2>
+                <span className="text-xs font-sans text-[var(--text-tertiary)]">~45 mins post-wake</span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {renderScoreBar(
-                entry.morning.morningAlertness,
-                10,
-                'Morning Alertness',
-                'Sharpness and wakefulness (Contributes to Recovery Index)'
-              )}
-              {renderScoreBar(
-                entry.morning.sleepInertia,
-                10,
-                'Sleep Inertia',
-                'Heavy grogginess or difficulty waking up'
-              )}
-              {renderScoreBar(
-                entry.morning.mood,
-                10,
-                'Subjective Mood',
-                'Emotional state (Contributes to Recovery Index)'
-              )}
-              {renderScoreBar(
-                entry.morning.motivation,
-                10,
-                'Daily Motivation',
-                'Drive and eagerness for daily tasks'
-              )}
-            </div>
-          </section>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!entry.mutedMetrics?.includes('morningAlertness') &&
+                  renderScoreBar(
+                    entry.morning.morningAlertness,
+                    10,
+                    'Morning Alertness',
+                    'Sharpness and wakefulness (Contributes to Recovery Index)'
+                  )}
+                {!entry.mutedMetrics?.includes('sleepInertia') &&
+                  renderScoreBar(
+                    entry.morning.sleepInertia,
+                    10,
+                    'Sleep Inertia',
+                    'Heavy grogginess or difficulty waking up'
+                  )}
+                {!entry.mutedMetrics?.includes('mood') &&
+                  renderScoreBar(
+                    entry.morning.mood,
+                    10,
+                    'Subjective Mood',
+                    'Emotional state (Contributes to Recovery Index)'
+                  )}
+                {!entry.mutedMetrics?.includes('motivation') &&
+                  renderScoreBar(
+                    entry.morning.motivation,
+                    10,
+                    'Daily Motivation',
+                    'Drive and eagerness for daily tasks'
+                  )}
+              </div>
+            </section>
+          )}
 
           {/* 03 — PHYSICAL & SUBJECTIVE RECOVERY */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-              <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                <span className="font-sans text-xs text-[var(--accent)] font-medium">03 —</span> Physical & Subjective Recovery
-              </h2>
-              <span className="text-xs font-sans text-[var(--text-tertiary)]">Physiological Markers</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {renderScoreBar(
-                entry.recovery.skinHealth,
-                10,
-                'Skin Health Observation',
-                'Clarity, hydration & tone (Contributes to Recovery Index)'
-              )}
-              {renderScoreBar(
-                entry.recovery.muscleFullness,
-                10,
-                'Muscle Fullness',
-                'Glycogen & physical tone (Contributes to Recovery Index)'
-              )}
-              {renderScoreBar(
-                entry.recovery.workoutEnergy,
-                10,
-                'Workout Energy',
-                'Readiness for physical training'
-              )}
-              {renderScoreBar(
-                entry.recovery.bodyFreshness,
-                10,
-                'Body Freshness',
-                'Absence of systemic muscle soreness'
-              )}
-            </div>
-
-            {/* Recovery Index Source Info Box */}
-            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-sans font-medium text-[var(--text-primary)]">
-                  <Award className="w-4 h-4 text-[var(--accent)]" /> RECOVERY INDEX BREAKDOWN
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                  Unweighted sum of 5 core metrics: Morning Alertness ({entry.morning.morningAlertness}), Mood ({entry.morning.mood}), Skin Health ({entry.recovery.skinHealth}), Muscle Fullness ({entry.recovery.muscleFullness}), Afternoon Energy ({entry.afternoon.afternoonEnergy}).
-                </p>
+          {(!entry.mutedMetrics?.includes('skinHealth') ||
+            !entry.mutedMetrics?.includes('muscleFullness') ||
+            !entry.mutedMetrics?.includes('workoutEnergy') ||
+            !entry.mutedMetrics?.includes('bodyFreshness')) && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
+                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                  <span className="font-sans text-xs text-[var(--accent)] font-medium">03 —</span> Physical & Subjective Recovery
+                </h2>
+                <span className="text-xs font-sans text-[var(--text-tertiary)]">Physiological Markers</span>
               </div>
-              <div className="text-right sm:border-l sm:border-[var(--border-default)] sm:pl-4 flex-shrink-0">
-                <div className="text-2xl font-sans font-semibold text-[var(--text-primary)]">
-                  {entry.calculatedMetrics.recoveryIndexScore} / 50
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!entry.mutedMetrics?.includes('skinHealth') &&
+                  renderScoreBar(
+                    entry.recovery.skinHealth,
+                    10,
+                    'Skin Health Observation',
+                    'Clarity, hydration & tone (Contributes to Recovery Index)'
+                  )}
+                {!entry.mutedMetrics?.includes('muscleFullness') &&
+                  renderScoreBar(
+                    entry.recovery.muscleFullness,
+                    10,
+                    'Muscle Fullness',
+                    'Glycogen & physical tone (Contributes to Recovery Index)'
+                  )}
+                {!entry.mutedMetrics?.includes('workoutEnergy') &&
+                  renderScoreBar(
+                    entry.recovery.workoutEnergy,
+                    10,
+                    'Workout Energy',
+                    'Readiness for physical training'
+                  )}
+                {!entry.mutedMetrics?.includes('bodyFreshness') &&
+                  renderScoreBar(
+                    entry.recovery.bodyFreshness,
+                    10,
+                    'Body Freshness',
+                    'Absence of systemic muscle soreness'
+                  )}
+              </div>
+
+              {/* Recovery Index Source Info Box */}
+              <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-sans font-medium text-[var(--text-primary)]">
+                    <Award className="w-4 h-4 text-[var(--accent)]" /> RECOVERY INDEX BREAKDOWN
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Unweighted sum of core active markers.
+                  </p>
                 </div>
-                <div className="text-xs font-sans text-[var(--accent)] font-medium">
-                  {entry.calculatedMetrics.recoveryIndexPercentage}% Score
+                <div className="text-right sm:border-l sm:border-[var(--border-default)] sm:pl-4 flex-shrink-0">
+                  <div className="text-2xl font-sans font-semibold text-[var(--text-primary)]">
+                    {entry.calculatedMetrics.recoveryIndexScore} / 50
+                  </div>
+                  <div className="text-xs font-sans text-[var(--accent)] font-medium">
+                    {entry.calculatedMetrics.recoveryIndexPercentage}% Score
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* 04 — AFTERNOON FUNCTIONING */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-              <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                <span className="font-sans text-xs text-[var(--accent)] font-medium">04 —</span> Afternoon Functioning
-              </h2>
-              <span className="text-xs font-sans text-[var(--text-tertiary)]">Mid-Day Observation</span>
-            </div>
+          {(!entry.mutedMetrics?.includes('afternoonEnergy') ||
+            !entry.mutedMetrics?.includes('focus') ||
+            !entry.mutedMetrics?.includes('afternoonSlump')) && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
+                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                  <span className="font-sans text-xs text-[var(--accent)] font-medium">04 —</span> Afternoon Functioning
+                </h2>
+                <span className="text-xs font-sans text-[var(--text-tertiary)]">Mid-Day Observation</span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {renderScoreBar(
-                entry.afternoon.afternoonEnergy,
-                10,
-                'Afternoon Energy (14:00-16:00)',
-                'Sustained vitality (Contributes to Recovery Index)'
-              )}
-              {renderScoreBar(
-                entry.afternoon.focus,
-                10,
-                'Cognitive Focus',
-                'Sustained concentration without brain fog'
-              )}
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!entry.mutedMetrics?.includes('afternoonEnergy') &&
+                  renderScoreBar(
+                    entry.afternoon.afternoonEnergy,
+                    10,
+                    'Afternoon Energy (14:00-16:00)',
+                    'Sustained vitality (Contributes to Recovery Index)'
+                  )}
+                {!entry.mutedMetrics?.includes('focus') &&
+                  renderScoreBar(
+                    entry.afternoon.focus,
+                    10,
+                    'Cognitive Focus',
+                    'Sustained concentration without brain fog'
+                  )}
+              </div>
 
-            <div className="bg-[var(--surface-raised)] p-3.5 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
-              <span className="text-xs font-sans font-medium text-[var(--text-primary)]">Experienced Afternoon Slump?</span>
-              <span className="text-xs font-sans font-medium px-3 py-1 rounded-full">
-                {entry.afternoon.afternoonSlump ? (
-                  <span className="text-[var(--danger)] bg-[var(--danger-soft)] px-2.5 py-0.5 rounded-full">Yes (Slump Observed)</span>
-                ) : (
-                  <span className="text-[var(--success)] bg-[var(--success-soft)] px-2.5 py-0.5 rounded-full">No (Steady Energy)</span>
-                )}
-              </span>
-            </div>
-          </section>
+              {!entry.mutedMetrics?.includes('afternoonSlump') && (
+                <div className="bg-[var(--surface-raised)] p-3.5 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
+                  <span className="text-xs font-sans font-medium text-[var(--text-primary)]">Experienced Afternoon Slump?</span>
+                  <span className="text-xs font-sans font-medium px-3 py-1 rounded-full">
+                    {entry.afternoon.afternoonSlump ? (
+                      <span className="text-[var(--danger)] bg-[var(--danger-soft)] px-2.5 py-0.5 rounded-full">Yes (Slump Observed)</span>
+                    ) : (
+                      <span className="text-[var(--success)] bg-[var(--success-soft)] px-2.5 py-0.5 rounded-full">No (Steady Energy)</span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 05 — EVENING READINESS & NOTES */}
           <section className="space-y-4">
