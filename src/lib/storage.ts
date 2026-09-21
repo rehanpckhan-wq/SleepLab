@@ -1021,6 +1021,7 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
     throw new Error('Supabase client is not configured or user is not logged in.');
   }
 
+  const client = supabase;
   const localEntries = getLocalEntries();
   const localMetrics = getLocalCustomMetricDefinitions();
   const localStudies = getLocalStudies();
@@ -1029,29 +1030,64 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
   let metricsMigrated = 0;
 
   if (localStudies.length > 0) {
-    const studyRows = localStudies.map((s) => ({
-      id: s.id,
-      user_id: userId,
-      title: s.title,
-      start_date: s.startDate,
-      duration_days: s.durationDays,
-      description: s.description || null,
-      updated_at: new Date().toISOString(),
-    }));
-    await supabase.from('studies').upsert(studyRows);
+    try {
+      const studyRows = localStudies.map((s) => ({
+        id: s.id,
+        user_id: userId,
+        title: s.title,
+        start_date: s.startDate,
+        duration_days: s.durationDays,
+        description: s.description || null,
+        updated_at: new Date().toISOString(),
+      }));
+      await client.from('studies').upsert(studyRows);
+    } catch (e) {
+      console.warn('Studies migration warning:', e);
+    }
   }
 
   if (localMetrics.length > 0) {
-    const metricRows = localMetrics.map((m) => customMetricDefToDb(m, userId));
-    const { error: metricErr } = await supabase.from('custom_metric_definitions').upsert(metricRows);
-    if (metricErr) throw metricErr;
-    metricsMigrated = localMetrics.length;
+    try {
+      const metricRows = localMetrics.map((m) => customMetricDefToDb(m, userId));
+      const { error: metricErr } = await client.from('custom_metric_definitions').upsert(metricRows);
+      if (metricErr) throw metricErr;
+      metricsMigrated = localMetrics.length;
+    } catch (e: any) {
+      console.warn('Custom metrics migration warning:', e?.message || e);
+    }
   }
 
   if (localEntries.length > 0) {
     const entryRows = localEntries.map((e) => dailyEntryToDb(e, userId));
-    const { error: entryErr } = await supabase.from('daily_entries').upsert(entryRows, { onConflict: 'user_id, date' });
-    if (entryErr) throw entryErr;
+    
+    let { error: entryErr } = await client.from('daily_entries').upsert(entryRows, { onConflict: 'user_id, date' });
+
+    if (entryErr && (entryErr.message?.includes('muted_metrics') || entryErr.message?.includes('study_id'))) {
+      const cleanedRows = entryRows.map((r: any) => {
+        const copy = { ...r };
+        if (entryErr!.message?.includes('muted_metrics')) delete copy.muted_metrics;
+        if (entryErr!.message?.includes('study_id')) delete copy.study_id;
+        return copy;
+      });
+      const retry = await client.from('daily_entries').upsert(cleanedRows, { onConflict: 'user_id, date' });
+      entryErr = retry.error;
+    }
+
+    if (entryErr) {
+      let retry = await client.from('daily_entries').upsert(entryRows, { onConflict: 'id' });
+      if (retry.error && (retry.error.message?.includes('muted_metrics') || retry.error.message?.includes('study_id'))) {
+        const cleanedRows = entryRows.map((r: any) => {
+          const copy = { ...r };
+          if (retry.error!.message?.includes('muted_metrics')) delete copy.muted_metrics;
+          if (retry.error!.message?.includes('study_id')) delete copy.study_id;
+          return copy;
+        });
+        retry = await client.from('daily_entries').upsert(cleanedRows, { onConflict: 'id' });
+      }
+      entryErr = retry.error;
+    }
+
+    if (entryErr) throw new Error(entryErr.message || entryErr.details || 'Failed to migrate entries');
     entriesMigrated = localEntries.length;
   }
 
