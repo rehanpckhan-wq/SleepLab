@@ -168,6 +168,16 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('sleeplab_entries_v1');
+        localStorage.removeItem('sleeplab_studies_list_v1');
+        localStorage.removeItem('sleeplab_study_config_v1');
+        localStorage.removeItem('sleeplab_custom_metrics_v1');
+        localStorage.removeItem('sleeplab_active_study_id_v1');
+        localStorage.removeItem('sleeplab_migrated_v1');
+      } catch (e) {}
+    }
     if (isSupabaseConfigured() && supabase) {
       await supabase.auth.signOut();
       setUserId(null);
