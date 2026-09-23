@@ -1,5 +1,6 @@
 import React from 'react';
-import { DailyEntry, CustomMetricDefinition, StudyConfig } from '@/types/sleeplab';
+import { DailyEntry, CustomMetricDefinition, StudyConfig, StudyCategory, StudyMetric } from '@/types/sleeplab';
+import { getDefaultStudySchema } from '@/lib/defaultSchema';
 import { getCustomMetricDefinitions, generateReportId } from '@/lib/storage';
 
 interface SingleReportPrintProps {
@@ -8,6 +9,7 @@ interface SingleReportPrintProps {
   isFirstReport: boolean;
   totalExportCount: number;
   exportScopeLabel?: string;
+  viewMode?: 'tree' | 'table';
 }
 
 export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
@@ -16,6 +18,7 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
   isFirstReport,
   totalExportCount,
   exportScopeLabel,
+  viewMode = 'tree',
 }) => {
   const reportId = entry.reportId || generateReportId(entry.date, entry.dayNumber);
   const customMetricDefs = getCustomMetricDefinitions();
@@ -169,126 +172,119 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
                 <td className="py-1 px-2 font-mono">{entry.calculatedMetrics.totalSleepFormatted} ({entry.calculatedMetrics.totalSleepMinutes}m)</td>
                 <td className="py-1 px-2 text-right font-mono text-[9px] text-academic-accent">Calculated Metric</td>
               </tr>
-              <tr>
-                <td className="py-1 px-2 font-medium">Woke Up to Alarm?</td>
-                <td className="py-1 px-2">{entry.sleep.alarmWake ? 'Yes (Alarm)' : 'No (Natural Wake)'}</td>
-                <td className="py-1 px-2 text-right font-mono text-[9px] text-academic-muted">Raw Input</td>
-              </tr>
-              <tr>
-                <td className="py-1 px-2 font-medium">Number of Awakenings</td>
-                <td className="py-1 px-2 font-mono">{entry.sleep.numberOfAwakenings}</td>
-                <td className="py-1 px-2 text-right font-mono text-[9px] text-academic-muted">Raw Input</td>
-              </tr>
-              <tr>
-                <td className="py-1 px-2 font-medium">Awakening Reason(s)</td>
-                <td className="py-1 px-2 font-mono">
-                  {entry.sleep.awakeningReasons.length > 0
-                    ? entry.sleep.awakeningReasons.join(', ')
-                    : 'None reported'}
-                </td>
-                <td className="py-1 px-2 text-right font-mono text-[9px] text-academic-muted">Raw Input</td>
-              </tr>
             </tbody>
           </table>
         </section>
 
-        {/* 02 — MORNING ASSESSMENT */}
-        <section className="space-y-1 break-inside-avoid">
-          <h2 className="text-xs font-serif font-bold text-paper-900 border-b border-paper-400 pb-0.5 uppercase tracking-wide">
-            02 — Morning Assessment (~45m post-wake)
-          </h2>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            {!entry.mutedMetrics?.includes('morningAlertness') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Morning Alertness</span>
-                <span className="font-mono font-bold">{entry.morning.morningAlertness} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('sleepInertia') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Sleep Inertia</span>
-                <span className="font-mono font-bold">{entry.morning.sleepInertia} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('mood') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Subjective Mood</span>
-                <span className="font-mono font-bold">{entry.morning.mood} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('motivation') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Daily Motivation</span>
-                <span className="font-mono font-bold">{entry.morning.motivation} / 10</span>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* DYNAMIC CATEGORIES FOR PRINT */}
+        {(() => {
+          const schema = studyConfig?.schema || getDefaultStudySchema();
+          const nonSleepCategories = schema.categories
+            .filter((c: StudyCategory) => c.id !== 'cat-sleep')
+            .sort((a: StudyCategory, b: StudyCategory) => a.order - b.order);
 
-        {/* 03 — PHYSICAL & SUBJECTIVE RECOVERY */}
-        <section className="space-y-1 break-inside-avoid">
-          <h2 className="text-xs font-serif font-bold text-paper-900 border-b border-paper-400 pb-0.5 uppercase tracking-wide">
-            03 — Physical & Subjective Recovery
-          </h2>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            {!entry.mutedMetrics?.includes('skinHealth') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Skin Health Observation</span>
-                <span className="font-mono font-bold">{entry.recovery.skinHealth} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('muscleFullness') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Muscle Fullness</span>
-                <span className="font-mono font-bold">{entry.recovery.muscleFullness} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('workoutEnergy') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Workout Energy</span>
-                <span className="font-mono font-bold">{entry.recovery.workoutEnergy} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('bodyFreshness') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Body Freshness</span>
-                <span className="font-mono font-bold">{entry.recovery.bodyFreshness} / 10</span>
-              </div>
-            )}
-          </div>
-          <div className="py-1 px-2 border border-paper-300 bg-paper-50 text-[10px] font-mono text-academic-slate rounded">
-            <strong>Recovery Index Source:</strong> Alertness ({entry.morning.morningAlertness}) + Mood ({entry.morning.mood}) + Skin ({entry.recovery.skinHealth}) + Muscle ({entry.recovery.muscleFullness}) + Afternoon ({entry.afternoon.afternoonEnergy}) = <strong>{entry.calculatedMetrics.recoveryIndexScore} / 50 ({entry.calculatedMetrics.recoveryIndexPercentage}%)</strong>.
-          </div>
-        </section>
+          return nonSleepCategories.map((cat: StudyCategory, catIdx: number) => {
+            const catMetrics = schema.metrics
+              .filter((m: StudyMetric) => m.categoryId === cat.id && m.active !== false)
+              .sort((a: StudyMetric, b: StudyMetric) => a.order - b.order);
 
-        {/* 04 — AFTERNOON FUNCTIONING */}
-        <section className="space-y-1 break-inside-avoid">
-          <h2 className="text-xs font-serif font-bold text-paper-900 border-b border-paper-400 pb-0.5 uppercase tracking-wide">
-            04 — Afternoon Functioning (14:00 - 16:00)
-          </h2>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            {!entry.mutedMetrics?.includes('afternoonEnergy') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Afternoon Energy</span>
-                <span className="font-mono font-bold">{entry.afternoon.afternoonEnergy} / 10</span>
-              </div>
-            )}
-            {!entry.mutedMetrics?.includes('focus') && (
-              <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center">
-                <span>Cognitive Focus</span>
-                <span className="font-mono font-bold">{entry.afternoon.focus} / 10</span>
-              </div>
-            )}
-          </div>
-          {!entry.mutedMetrics?.includes('afternoonSlump') && (
-            <div className="py-1 px-2 border border-paper-200 rounded flex justify-between items-center text-[11px]">
-              <span>Experienced Afternoon Slump?</span>
-              <span className="font-mono font-bold">
-                {entry.afternoon.afternoonSlump ? 'Yes (Slump Observed)' : 'No (Steady Energy)'}
-              </span>
-            </div>
-          )}
-        </section>
+            const renderPrintMetricNode = (m: StudyMetric, depth: number = 0): React.ReactNode => {
+              if (entry.mutedMetrics?.includes(m.id)) return null;
+
+              const rawVal =
+                m.id === 'morningAlertness' ? entry.morning.morningAlertness :
+                m.id === 'sleepInertia' ? entry.morning.sleepInertia :
+                m.id === 'mood' ? entry.morning.mood :
+                m.id === 'motivation' ? entry.morning.motivation :
+                m.id === 'skinHealth' ? entry.recovery.skinHealth :
+                m.id === 'muscleFullness' ? entry.recovery.muscleFullness :
+                m.id === 'workoutEnergy' ? entry.recovery.workoutEnergy :
+                m.id === 'bodyFreshness' ? entry.recovery.bodyFreshness :
+                m.id === 'afternoonEnergy' ? entry.afternoon.afternoonEnergy :
+                m.id === 'focus' ? entry.afternoon.focus :
+                entry.metricsData?.[m.id];
+
+              if (rawVal === undefined || rawVal === null || rawVal === '') return null;
+
+              const activeRules = (m.dependentRules || []).filter((rule) => {
+                if (rule.condition === 'isTrue') return Boolean(rawVal) === true;
+                if (rule.condition === 'isFalse') return Boolean(rawVal) === false;
+                if (rule.condition === 'equals') return String(rawVal) === String(rule.targetValue);
+                if (rule.condition === 'greaterThan') return Number(rawVal) > Number(rule.targetValue);
+                if (rule.condition === 'lessThan') return Number(rawVal) < Number(rule.targetValue);
+                if (rule.condition === 'contains') return Array.isArray(rawVal) && rawVal.includes(rule.targetValue);
+                return false;
+              });
+
+              const displayVal =
+                m.type === 'slider' ? `${rawVal} / ${m.config?.max || 10}` :
+                m.type === 'tags' && Array.isArray(rawVal) ? rawVal.join(', ') :
+                m.type === 'checkbox' ? (rawVal ? 'Yes' : 'No') :
+                `${rawVal}${m.config?.unit ? ` ${m.config.unit}` : ''}`;
+
+              if (viewMode === 'table') {
+                return (
+                  <React.Fragment key={m.id}>
+                    <tr className={depth > 0 ? 'bg-paper-100/60 text-[10px]' : ''}>
+                      <td className="py-1 px-2 font-medium flex items-center gap-1">
+                        {depth > 0 && <span className="font-mono text-academic-navy pl-1">↳</span>}
+                        {m.name}
+                      </td>
+                      <td className="py-1 px-2 font-mono font-bold">{displayVal}</td>
+                      <td className="py-1 px-2 text-right font-mono text-[9px] text-academic-muted">{m.type}</td>
+                    </tr>
+                    {activeRules.map((rule) => renderPrintMetricNode(rule.subMetric, depth + 1))}
+                  </React.Fragment>
+                );
+              }
+
+              // Tree view in PDF export
+              const indentPadding = depth > 0 ? { marginLeft: `${depth * 14}px` } : {};
+              return (
+                <div key={m.id} style={indentPadding} className="space-y-1">
+                  <div className={`py-1 px-2 border border-paper-300 rounded flex justify-between items-center text-[11px] ${depth > 0 ? 'bg-paper-100 border-l-2 border-l-academic-navy text-[10px]' : 'bg-white'}`}>
+                    <span className="font-medium flex items-center gap-1">
+                      {depth > 0 && <span className="font-mono text-academic-navy font-bold">↳</span>}
+                      {m.name}
+                    </span>
+                    <span className="font-mono font-bold text-paper-900">{displayVal}</span>
+                  </div>
+                  {activeRules.length > 0 && (
+                    <div className="space-y-1 pl-2 border-l border-paper-300 my-1">
+                      {activeRules.map((rule) => renderPrintMetricNode(rule.subMetric, depth + 1))}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <section key={cat.id} className="space-y-1 break-inside-avoid">
+                <h2 className="text-xs font-serif font-bold text-paper-900 border-b border-paper-400 pb-0.5 uppercase tracking-wide">
+                  0{catIdx + 2} — {cat.name}
+                </h2>
+                {viewMode === 'table' ? (
+                  <table className="w-full text-[11px] text-left border-collapse border border-paper-300">
+                    <thead>
+                      <tr className="bg-paper-100 border-b border-paper-300 font-mono text-[9px] uppercase">
+                        <th className="py-1 px-2 font-semibold">Metric</th>
+                        <th className="py-1 px-2 font-semibold">Value</th>
+                        <th className="py-1 px-2 font-semibold text-right">Type</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-paper-200">
+                      {catMetrics.map((m: StudyMetric) => renderPrintMetricNode(m, 0))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="space-y-1 text-[11px]">
+                    {catMetrics.map((m: StudyMetric) => renderPrintMetricNode(m, 0))}
+                  </div>
+                )}
+              </section>
+            );
+          });
+        })()}
 
         {/* 05 — EVENING READINESS & QUALITATIVE NOTES */}
         <section className="space-y-1 break-inside-avoid">

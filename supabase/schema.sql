@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.studies (
     start_date DATE NOT NULL DEFAULT CURRENT_DATE,
     duration_days INT NOT NULL DEFAULT 30,
     description TEXT,
+    schema JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -29,7 +30,9 @@ CREATE TABLE IF NOT EXISTS public.daily_entries (
     afternoon JSONB NOT NULL,
     evening JSONB NOT NULL,
     confounders JSONB NOT NULL DEFAULT '[]'::jsonb,
+    muted_metrics JSONB DEFAULT '[]'::jsonb,
     additional_metrics JSONB DEFAULT '{}'::jsonb,
+    metrics_data JSONB DEFAULT '{}'::jsonb,
     calculated_metrics JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

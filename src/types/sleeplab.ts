@@ -59,10 +59,50 @@ export interface EveningData {
   notes: string;
 }
 
+export type MetricInputType = CustomMetricType;
+
+export interface StudyCategory {
+  id: string;
+  name: string;
+  description?: string;
+  order: number;
+  isSystemLocked?: boolean;
+}
+
+export type TriggerCondition = 'equals' | 'greaterThan' | 'lessThan' | 'isTrue' | 'isFalse' | 'contains';
+
+export interface DependentRule {
+  id: string;
+  condition: TriggerCondition;
+  targetValue?: any;
+  subMetric: StudyMetric;
+}
+
+export interface StudyMetric {
+  id: string;
+  categoryId: string;
+  name: string;
+  type: MetricInputType | 'tags' | 'select_one';
+  description?: string;
+  config?: CustomMetricConfig;
+  options?: string[]; // Options for multi-select / tags sub-metrics
+  order: number;
+  active: boolean;
+  isSystemLocked?: boolean; // True for core sleep timing metrics
+  dependentRules?: DependentRule[]; // Nested sub-metric trigger rules
+}
+
+export interface StudySchema {
+  categories: StudyCategory[];
+  metrics: StudyMetric[];
+  recoveryIndexMetricIds: string[]; // List of metric IDs selected by user to calculate Recovery Index
+}
+
 export interface CalculatedMetrics {
   totalSleepMinutes: number;
   totalSleepFormatted: string;
-  recoveryIndexScore: number; // Out of 50 (Alertness + Mood + Skin + Muscle + Afternoon Energy)
+  recoveryIndexScore: number;
+  recoveryIndexMaxScore?: number;
   recoveryIndexPercentage: number; // 0-100%
 }
 
@@ -78,8 +118,9 @@ export interface DailyEntry {
   afternoon: AfternoonData;
   evening: EveningData;
   confounders: ConfoundingFactor[];
-  mutedMetrics?: string[]; // Keys of metrics muted/turned off for this entry (e.g. 'workoutEnergy', 'sleepInertia')
-  additionalMetrics?: Record<string, any>; // User-defined custom metric values keyed by metric.id
+  mutedMetrics?: string[]; // Keys of metrics muted/turned off for this entry
+  additionalMetrics?: Record<string, any>; // User-defined custom metric values
+  metricsData?: Record<string, any>; // Dynamic observation data map (metricId -> value)
   calculatedMetrics: CalculatedMetrics;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +134,7 @@ export interface StudyProtocol {
   startDate: string; // YYYY-MM-DD
   durationDays: number;
   description?: string;
+  schema?: StudySchema;
   createdAt?: string;
   updatedAt?: string;
 }

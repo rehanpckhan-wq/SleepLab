@@ -19,6 +19,8 @@ import {
   X,
   FlaskConical,
   ChevronDown,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 interface PreviousDaysListProps {
@@ -27,8 +29,8 @@ interface PreviousDaysListProps {
   activeStudyId?: string;
   userId?: string | null;
   studyConfig?: StudyConfig;
-  onSelectEntry: (entry: DailyEntry) => void;
-  onViewReport: (entry: DailyEntry) => void;
+  onSelectEntry: (entry: DailyEntry, isMaximized?: boolean) => void;
+  onViewReport: (entry: DailyEntry, isMaximized?: boolean) => void;
   onReassignEntryStudy?: (entryId: string, targetStudyId: string) => void;
   onEntriesChanged: () => void;
   onNewLogClick: () => void;
@@ -79,6 +81,7 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [confounderFilter, setConfounderFilter] = useState<ConfounderFilter>('all');
   const [dayTypeFilter, setDayTypeFilter] = useState<DayTypeFilter>('all');
+  const [isMaximized, setIsMaximized] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Dropdown Popover States
@@ -248,7 +251,11 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
   }
 
   return (
-    <div className="space-y-4 my-6 font-sans">
+    <div className={
+      isMaximized
+        ? "fixed inset-0 z-50 bg-[var(--surface)] p-6 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200"
+        : "space-y-4 my-6 font-sans"
+    }>
       {/* HEADER STRIP */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--border-default)] pb-4 gap-3">
         <div>
@@ -269,6 +276,22 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
           <span className="text-xs text-[var(--text-secondary)] bg-[var(--surface-raised)] px-2.5 py-1.5 rounded-full border border-[var(--border-default)]">
             {entries.length} of {studyConfig?.durationDays || 30} Days Logged
           </span>
+          <button
+            type="button"
+            onClick={() => setIsMaximized((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md transition-colors shadow-xs"
+            title={isMaximized ? 'Restore Page View' : 'Maximize Fullscreen View'}
+          >
+            {isMaximized ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Restore View
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Maximize View
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -603,7 +626,7 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onViewReport(entry);
+                          onViewReport(entry, isMaximized);
                         }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md border border-[var(--border-default)] transition-colors"
                       >
@@ -613,7 +636,7 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelectEntry(entry);
+                          onSelectEntry(entry, isMaximized);
                         }}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-md border border-[var(--border-default)] transition-colors"
                         title="Edit raw entry"

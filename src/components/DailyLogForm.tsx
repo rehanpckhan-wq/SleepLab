@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DailyEntry,
   AwakeningReason,
   SleepyBeforeBedOption,
   ConfoundingFactor,
   CustomMetricDefinition,
+  StudySchema,
+  StudyMetric,
+  DependentRule,
 } from '@/types/sleeplab';
 import { SliderField } from './SliderField';
-import { computeMetrics } from '@/lib/calculations';
+import { computeMetrics, computeDynamicMetrics } from '@/lib/calculations';
+import { getDefaultStudySchema } from '@/lib/defaultSchema';
 import {
   getEntryByDate,
   saveEntryAsync,
@@ -35,13 +40,21 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  GitFork,
+  Maximize2,
+  Minimize2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface DailyLogFormProps {
+  initialMaximized?: boolean;
   initialEntry?: DailyEntry | null;
+  studySchema?: StudySchema;
   userId?: string | null;
   onSaved: (savedEntry: DailyEntry) => void;
   onCancel?: () => void;
+  onOpenSchemaEditor?: () => void;
 }
 
 const ALL_AWAKENING_REASONS: AwakeningReason[] = ['Pee', 'Dream', 'Noise', 'Unknown', 'Other'];
@@ -61,12 +74,17 @@ const ALL_CONFOUNDERS: ConfoundingFactor[] = [
 ];
 
 export const DailyLogForm: React.FC<DailyLogFormProps> = ({
+  initialMaximized,
   initialEntry,
+  studySchema,
   userId,
   onSaved,
   onCancel,
+  onOpenSchemaEditor,
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const effectiveSchema = studySchema || getDefaultStudySchema();
 
   const [date, setDate] = useState<string>(initialEntry?.date || todayStr);
   const [isEditingExisting, setIsEditingExisting] = useState<boolean>(!!initialEntry);
@@ -133,6 +151,9 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   const [additionalMetrics, setAdditionalMetrics] = useState<Record<string, any>>(
     initialEntry?.additionalMetrics || {}
   );
+  const [metricsData, setMetricsData] = useState<Record<string, any>>(
+    initialEntry?.metricsData || {}
+  );
 
   // Modal states
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
@@ -143,14 +164,30 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   // Confounders definitions state
   const [confounderOptions, setConfounderOptions] = useState<string[]>([]);
 
-  // Collapsed sections state
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // Collapsed sections state with localStorage persistence
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('sleeplab_form_collapsed_sections');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
 
   // Muted metrics state
   const [mutedMetrics, setMutedMetrics] = useState<string[]>(initialEntry?.mutedMetrics || []);
 
   const toggleSectionCollapse = (sectionKey: string) => {
-    setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
+    setCollapsedSections((prev) => {
+      const updated = { ...prev, [sectionKey]: !prev[sectionKey] };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('sleeplab_form_collapsed_sections', JSON.stringify(updated));
+        } catch (e) {}
+      }
+      return updated;
+    });
   };
 
   const handleToggleMute = (metricId: string) => {
@@ -161,6 +198,11 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
 
   // Feedback banner state
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+  const [maximizedCategoryId, setMaximizedCategoryId] = useState<string | null>(null);
+  const [isFormMaximized, setIsFormMaximized] = useState(initialMaximized || false);
+  useEffect(() => { if (initialMaximized !== undefined) setIsFormMaximized(initialMaximized); }, [initialMaximized]);
 
   const refreshCustomMetrics = async () => {
     const loaded = await fetchCustomMetricDefinitionsAsync(userId);
@@ -206,6 +248,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
         setNotes(existing.evening.notes);
         setConfounders(existing.confounders);
         setAdditionalMetrics(existing.additionalMetrics || {});
+        setMetricsData(existing.metricsData || {});
         setMutedMetrics(existing.mutedMetrics || []);
       } else {
         setIsEditingExisting(false);
@@ -216,14 +259,66 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   // Active custom metrics
   const activeCustomMetrics = customMetricDefs.filter((m) => m.active !== false);
 
+  // Combine state for dynamic metrics computation
+  const currentMergedMetrics = {
+    morningAlertness,
+    sleepInertia,
+    mood,
+    motivation,
+    skinHealth,
+    muscleFullness,
+    workoutEnergy,
+    bodyFreshness,
+    afternoonEnergy,
+    focus,
+    afternoonSlump,
+    ...metricsData,
+  };
+
   // Compute live metrics
-  const calculatedMetrics = computeMetrics(
+  const calculatedMetrics = computeDynamicMetrics(
     estimatedSleepTime,
     naturalWakeTime,
+    currentMergedMetrics,
+    effectiveSchema.recoveryIndexMetricIds,
     { morningAlertness, sleepInertia, mood, motivation },
     { skinHealth, muscleFullness, workoutEnergy, bodyFreshness },
     { afternoonEnergy, focus, afternoonSlump }
   );
+
+  
+  // All ordered category IDs for Focus Mode navigation
+  const allCategoryIds = [
+    'sleep',
+    ...effectiveSchema.categories
+      .filter((cat) => cat.id !== 'cat-sleep')
+      .sort((a, b) => a.order - b.order)
+      .map((c) => c.id),
+    'confounders',
+  ];
+
+  const currentFocusIndex = maximizedCategoryId ? allCategoryIds.indexOf(maximizedCategoryId) : -1;
+  const canNavigatePrevCategory = currentFocusIndex > 0;
+  const canNavigateNextCategory = currentFocusIndex >= 0 && currentFocusIndex < allCategoryIds.length - 1;
+
+  const handleNavigatePrevCategory = () => {
+    if (canNavigatePrevCategory) {
+      setMaximizedCategoryId(allCategoryIds[currentFocusIndex - 1]);
+    }
+  };
+
+  const handleNavigateNextCategory = () => {
+    if (canNavigateNextCategory) {
+      setMaximizedCategoryId(allCategoryIds[currentFocusIndex + 1]);
+    }
+  };
+
+  const getFocusedCategoryTitle = (catId: string) => {
+    if (catId === 'sleep') return '1. Sleep Parameters';
+    if (catId === 'confounders') return 'Potential Confounding Factors';
+    const found = effectiveSchema.categories.find((c) => c.id === catId);
+    return found ? found.name : 'Category';
+  };
 
   const startDate = getStoredStartDate() || date;
   const dayNumber = initialEntry?.dayNumber || calculateDayNumber(startDate, date);
@@ -234,6 +329,187 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     } else {
       setAwakeningReasons([...awakeningReasons, reason]);
     }
+  };
+
+  const renderMetricItem = (m: StudyMetric, depth: number = 0): React.ReactNode => {
+    const val =
+      m.id === 'morningAlertness' ? morningAlertness :
+      m.id === 'sleepInertia' ? sleepInertia :
+      m.id === 'mood' ? mood :
+      m.id === 'motivation' ? motivation :
+      m.id === 'skinHealth' ? skinHealth :
+      m.id === 'muscleFullness' ? muscleFullness :
+      m.id === 'workoutEnergy' ? workoutEnergy :
+      m.id === 'bodyFreshness' ? bodyFreshness :
+      m.id === 'afternoonEnergy' ? afternoonEnergy :
+      m.id === 'focus' ? focus :
+      metricsData[m.id];
+
+    const isMuted = mutedMetrics.includes(m.id);
+
+    const handleValChange = (newVal: any) => {
+      if (m.id === 'morningAlertness') setMorningAlertness(newVal);
+      else if (m.id === 'sleepInertia') setSleepInertia(newVal);
+      else if (m.id === 'mood') setMood(newVal);
+      else if (m.id === 'motivation') setMotivation(newVal);
+      else if (m.id === 'skinHealth') setSkinHealth(newVal);
+      else if (m.id === 'muscleFullness') setMuscleFullness(newVal);
+      else if (m.id === 'workoutEnergy') setWorkoutEnergy(newVal);
+      else if (m.id === 'bodyFreshness') setBodyFreshness(newVal);
+      else if (m.id === 'afternoonEnergy') setAfternoonEnergy(newVal);
+      else if (m.id === 'focus') setFocus(newVal);
+      else {
+        setMetricsData((prev) => ({ ...prev, [m.id]: newVal }));
+      }
+    };
+
+    // Active rules evaluation for nested children
+    const activeChildRules = (m.dependentRules || []).filter((rule) => {
+      if (rule.condition === 'isTrue') return Boolean(val) === true;
+      if (rule.condition === 'isFalse') return Boolean(val) === false;
+      if (rule.condition === 'equals') return String(val) === String(rule.targetValue);
+      if (rule.condition === 'greaterThan') return Number(val) > Number(rule.targetValue);
+      if (rule.condition === 'lessThan') return Number(val) < Number(rule.targetValue);
+      if (rule.condition === 'contains') return (Array.isArray(val) && val.includes(rule.targetValue)) || String(val) === String(rule.targetValue);
+      return false;
+    });
+
+    const depthIndentClass = depth > 0 ? 'border-l-2 border-[var(--accent-soft)] pl-4 my-2 space-y-3' : 'space-y-2';
+
+    return (
+      <div key={m.id} className={depthIndentClass}>
+        {m.type === 'slider' && (
+          <SliderField
+            label={m.name}
+            sublabel={m.description}
+            value={val ?? Math.round(((m.config?.min ?? 1) + (m.config?.max ?? 10)) / 2)}
+            onChange={handleValChange}
+            min={m.config?.min ?? 1}
+            max={m.config?.max ?? 10}
+            minLabel={`${m.config?.min ?? 1}`}
+            maxLabel={`${m.config?.max ?? 10}${m.config?.unit ? ` (${m.config.unit})` : ''}`}
+            isMuted={isMuted}
+            onToggleMute={() => handleToggleMute(m.id)}
+          />
+        )}
+
+        {m.type === 'number' && (
+          <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 space-y-1">
+            <label className="block text-xs font-medium text-[var(--text-primary)]">
+              {m.name} {m.config?.unit && <span className="text-[var(--text-tertiary)]">({m.config.unit})</span>}
+            </label>
+            {m.description && <p className="text-[11px] text-[var(--text-secondary)]">{m.description}</p>}
+            <input
+              type="number"
+              min={m.config?.min}
+              max={m.config?.max}
+              value={val ?? ''}
+              onChange={(e) => handleValChange(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
+            />
+          </div>
+        )}
+
+        {m.type === 'checkbox' && (
+          <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-primary)]">{m.name}</label>
+              {m.description && <p className="text-[11px] text-[var(--text-secondary)]">{m.description}</p>}
+            </div>
+            <input
+              type="checkbox"
+              checked={!!val}
+              onChange={(e) => handleValChange(e.target.checked)}
+              className="rounded border-[var(--border-default)] text-[var(--accent)] focus:ring-0 w-4 h-4 cursor-pointer"
+            />
+          </div>
+        )}
+
+        {m.type === 'text' && (
+          <div className={`bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 space-y-1 ${depth === 0 ? 'md:col-span-2' : ''}`}>
+            <label className="block text-xs font-medium text-[var(--text-primary)]">{m.name}</label>
+            {m.description && <p className="text-[11px] text-[var(--text-secondary)]">{m.description}</p>}
+            <textarea
+              rows={2}
+              value={val ?? ''}
+              onChange={(e) => handleValChange(e.target.value)}
+              className="w-full border border-[var(--border-default)] rounded-md p-2.5 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
+            />
+          </div>
+        )}
+
+        {/* Tags / Multi-select Sub-Metric */}
+        {m.type === 'tags' && (
+          <div className={`bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 space-y-2 ${depth === 0 ? 'md:col-span-2' : ''}`}>
+            <label className="block text-xs font-medium text-[var(--text-primary)]">{m.name}</label>
+            {m.description && <p className="text-[11px] text-[var(--text-secondary)]">{m.description}</p>}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(m.options || []).map((opt) => {
+                const selectedList: string[] = Array.isArray(val) ? val : [];
+                const isSelected = selectedList.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      const next = isSelected
+                        ? selectedList.filter((item) => item !== opt)
+                        : [...selectedList, opt];
+                      handleValChange(next);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
+                      isSelected
+                        ? 'bg-[var(--accent)] text-white border-transparent'
+                        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Multi Option / Select One Sub-Metric */}
+        {m.type === 'select_one' && (
+          <div className={`bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-md p-4 space-y-2 ${depth === 0 ? 'md:col-span-2' : ''}`}>
+            <label className="block text-xs font-medium text-[var(--text-primary)]">{m.name}</label>
+            {m.description && <p className="text-[11px] text-[var(--text-secondary)]">{m.description}</p>}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(m.options || []).map((opt) => {
+                const isSelected = val === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => handleValChange(isSelected ? '' : opt)}
+                    className={`px-3 py-1 rounded-full text-xs font-sans transition-all border flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[var(--accent)] text-white border-transparent shadow-xs font-medium'
+                        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full border ${isSelected ? 'bg-white border-white' : 'border-[var(--text-tertiary)]'}`} />
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Render Triggered Child Sub-Metrics (N-Level Branching) */}
+        {activeChildRules.length > 0 && (
+          <div className={`space-y-3 pt-2 ${depth === 0 ? 'md:col-span-2' : ''}`}>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] flex items-center gap-1">
+              <GitFork className="w-3 h-3" /> Conditional Trigger Active:
+            </div>
+            {activeChildRules.map((rule) => renderMetricItem(rule.subMetric, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleConfounderToggle = (item: ConfoundingFactor) => {
@@ -298,6 +574,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       },
       confounders,
       additionalMetrics,
+      metricsData: currentMergedMetrics,
       mutedMetrics,
       calculatedMetrics,
       createdAt: initialEntry?.createdAt || new Date().toISOString(),
@@ -321,7 +598,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     }
   };
 
-  return (
+  const mainFormBody = (
     <>
       <form onSubmit={handleSubmit} className="space-y-8 pb-12">
         {/* Save Error Banner */}
@@ -354,6 +631,22 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 onChange={(e) => setDate(e.target.value)}
                 className="border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent-soft)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
               />
+              <button
+                type="button"
+                onClick={() => setIsFormMaximized((prev) => !prev)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md transition-colors shadow-xs"
+                title={isFormMaximized ? 'Restore Normal Page View' : 'Maximize Fullscreen Form'}
+              >
+                {isFormMaximized ? (
+                  <>
+                    <Minimize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Restore View
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Maximize Form
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -364,8 +657,6 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
             </div>
           )}
         </div>
-
-        {/* Live Calculated Index Header Banner */}
         <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg p-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-default)] pb-3">
             <div>
@@ -390,8 +681,26 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           </div>
 
           <p className="text-xs font-sans text-[var(--text-secondary)] leading-relaxed">
-            The Recovery Index is calculated automatically as the unweighted average of 5 core subjective markers:
-            <strong> Morning Alertness</strong>, <strong>Mood</strong>, <strong>Skin Health</strong>, <strong>Muscle Fullness</strong>, and <strong>Afternoon Energy</strong>.
+            The Recovery Index accounts for the metrics selected in your active protocol schema:
+            {(() => {
+              const activeRecoveryMetrics = effectiveSchema.metrics.filter(
+                (m) => m.type === 'slider' && m.active !== false && effectiveSchema.recoveryIndexMetricIds.includes(m.id)
+              );
+              if (activeRecoveryMetrics.length === 0) {
+                return <span className="italic text-[var(--text-tertiary)]"> (No slider metrics currently selected in protocol editor)</span>;
+              }
+              return (
+                <span>
+                  {' '}
+                  {activeRecoveryMetrics.map((m, idx) => (
+                    <React.Fragment key={m.id}>
+                      <strong>{m.name}</strong>
+                      {idx < activeRecoveryMetrics.length - 2 ? ', ' : idx === activeRecoveryMetrics.length - 2 ? ', and ' : '.'}
+                    </React.Fragment>
+                  ))}
+                </span>
+              );
+            })()}
           </p>
         </div>
 
@@ -407,9 +716,22 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 1. Sleep Parameters
               </h2>
             </div>
-            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
-              {collapsedSections['sleep'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMaximizedCategoryId(maximizedCategoryId === 'sleep' ? null : 'sleep');
+                }}
+                className="p-1 text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:bg-[var(--surface-raised)] rounded transition-colors"
+                title={maximizedCategoryId === 'sleep' ? 'Restore Page View' : 'Focus / Expand Category'}
+              >
+                {maximizedCategoryId === 'sleep' ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+              <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+                {collapsedSections['sleep'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {!collapsedSections['sleep'] && (
@@ -474,348 +796,73 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 </div>
               </div>
 
-              {/* Alarm & Awakenings */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                    Woke Up to Alarm?
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                      <input
-                        type="radio"
-                        name="alarmWake"
-                        checked={alarmWake === true}
-                        onChange={() => setAlarmWake(true)}
-                        className="accent-[var(--accent)]"
-                      />
-                      Yes (Alarm)
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                      <input
-                        type="radio"
-                        name="alarmWake"
-                        checked={alarmWake === false}
-                        onChange={() => setAlarmWake(false)}
-                        className="accent-[var(--accent)]"
-                      />
-                      No (Natural Wake)
-                    </label>
+            </div>
+          )}
+        </section>
+
+        {/* DYNAMIC CATEGORIES RENDER (Categories from Study Schema) */}
+        {effectiveSchema.categories
+          .filter((cat) => cat.id !== 'cat-sleep')
+          .sort((a, b) => a.order - b.order)
+          .map((cat, catIdx) => {
+            const catMetrics = effectiveSchema.metrics
+              .filter((m) => m.categoryId === cat.id && m.active !== false)
+              .sort((a, b) => a.order - b.order);
+
+            return (
+              <section
+                key={cat.id}
+                className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all"
+              >
+                <div
+                  onClick={() => toggleSectionCollapse(cat.id)}
+                  className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-[var(--accent)]" />
+                    <div>
+                      <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                        {catIdx + 2}. {cat.name}
+                      </h2>
+                      {cat.description && (
+                        <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Number of Awakenings
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={numberOfAwakenings}
-                    onChange={(e) => setNumberOfAwakenings(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="w-32 border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-                  />
-                </div>
-              </div>
-
-              {/* Awakening Reasons */}
-              {numberOfAwakenings > 0 && (
-                <div className="pt-2 border-t border-[var(--border-default)]">
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                    Awakening Reason(s)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {ALL_AWAKENING_REASONS.map((reason) => {
-                      const isSelected = awakeningReasons.includes(reason);
-                      return (
-                        <button
-                          key={reason}
-                          type="button"
-                          onClick={() => handleAwakeningReasonToggle(reason)}
-                          className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
-                            isSelected
-                              ? 'bg-[var(--accent)] text-white border-transparent'
-                              : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                          }`}
-                        >
-                          {reason}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 2: MORNING ASSESSMENT */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
-          <div
-            onClick={() => toggleSectionCollapse('morning')}
-            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
-          >
-            <div className="flex items-center gap-2">
-              <Sun className="w-4 h-4 text-[var(--warning)]" />
-              <div>
-                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                  2. Morning Assessment
-                </h2>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Logged ~45 minutes post-wake, after standard morning routine.
-                </p>
-              </div>
-            </div>
-            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
-              {collapsedSections['morning'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {!collapsedSections['morning'] && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5">
-              <SliderField
-                label="Morning Alertness"
-                sublabel="Degree of sharpness and wakefulness (Contributes to Recovery Index)"
-                value={morningAlertness}
-                onChange={setMorningAlertness}
-                minLabel="1 (Brain fog)"
-                maxLabel="10 (Fully sharp)"
-                isMuted={mutedMetrics.includes('morningAlertness')}
-                onToggleMute={() => handleToggleMute('morningAlertness')}
-              />
-              <SliderField
-                label="Sleep Inertia"
-                sublabel="Heavy grogginess or difficulty transitioning out of sleep"
-                value={sleepInertia}
-                onChange={setSleepInertia}
-                minLabel="1 (Clear wakefulness)"
-                maxLabel="10 (Severe grogginess)"
-                isMuted={mutedMetrics.includes('sleepInertia')}
-                onToggleMute={() => handleToggleMute('sleepInertia')}
-              />
-              <SliderField
-                label="Mood"
-                sublabel="Subjective emotional state upon starting day (Contributes to Recovery Index)"
-                value={mood}
-                onChange={setMood}
-                minLabel="1 (Irritable/Low)"
-                maxLabel="10 (Positive/Upbeat)"
-                isMuted={mutedMetrics.includes('mood')}
-                onToggleMute={() => handleToggleMute('mood')}
-              />
-              <SliderField
-                label="Motivation"
-                sublabel="Drive and enthusiasm to undertake daily goals"
-                value={motivation}
-                onChange={setMotivation}
-                minLabel="1 (Apathetic)"
-                maxLabel="10 (Driven)"
-                isMuted={mutedMetrics.includes('motivation')}
-                onToggleMute={() => handleToggleMute('motivation')}
-              />
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 3: RECOVERY */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
-          <div
-            onClick={() => toggleSectionCollapse('recovery')}
-            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
-          >
-            <div className="flex items-center gap-2">
-              <Battery className="w-4 h-4 text-[var(--success)]" />
-              <div>
-                <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                  3. Physical & Subjective Recovery
-                </h2>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Subjective physiological observations. Not objective clinical telemetry.
-                </p>
-              </div>
-            </div>
-            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
-              {collapsedSections['recovery'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {!collapsedSections['recovery'] && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5">
-              <SliderField
-                label="Skin Health"
-                sublabel="Subjective clarity, hydration, and tone (Contributes to Recovery Index)"
-                value={skinHealth}
-                onChange={setSkinHealth}
-                minLabel="1 (Dull/Inflamed)"
-                maxLabel="10 (Clear/Vibrant)"
-                isMuted={mutedMetrics.includes('skinHealth')}
-                onToggleMute={() => handleToggleMute('skinHealth')}
-              />
-              <SliderField
-                label="Muscle Fullness"
-                sublabel="Perceived glycogen fullness & physical tone (Contributes to Recovery Index)"
-                value={muscleFullness}
-                onChange={setMuscleFullness}
-                minLabel="1 (Flat/Depleted)"
-                maxLabel="10 (Full/Pumped)"
-                isMuted={mutedMetrics.includes('muscleFullness')}
-                onToggleMute={() => handleToggleMute('muscleFullness')}
-              />
-              <SliderField
-                label="Workout Energy"
-                sublabel="Physical readiness for physical exertion or training"
-                value={workoutEnergy}
-                onChange={setWorkoutEnergy}
-                minLabel="1 (Exhausted)"
-                maxLabel="10 (Peak readiness)"
-                isMuted={mutedMetrics.includes('workoutEnergy')}
-                onToggleMute={() => handleToggleMute('workoutEnergy')}
-              />
-              <SliderField
-                label="Body Freshness"
-                sublabel="Absence of systemic soreness or physical fatigue"
-                value={bodyFreshness}
-                onChange={setBodyFreshness}
-                minLabel="1 (Heavy soreness)"
-                maxLabel="10 (Completely fresh)"
-                isMuted={mutedMetrics.includes('bodyFreshness')}
-                onToggleMute={() => handleToggleMute('bodyFreshness')}
-              />
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 4: AFTERNOON */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
-          <div
-            onClick={() => toggleSectionCollapse('afternoon')}
-            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
-          >
-            <div className="flex items-center gap-2">
-              <Sun className="w-4 h-4 text-[var(--accent)]" />
-              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                4. Afternoon Functioning
-              </h2>
-            </div>
-            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
-              {collapsedSections['afternoon'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {!collapsedSections['afternoon'] && (
-            <div className="space-y-4 pt-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SliderField
-                  label="Afternoon Energy"
-                  sublabel="Sustained physical energy around 14:00 - 16:00 (Contributes to Recovery Index)"
-                  value={afternoonEnergy}
-                  onChange={setAfternoonEnergy}
-                  minLabel="1 (Drained)"
-                  maxLabel="10 (High vitality)"
-                  isMuted={mutedMetrics.includes('afternoonEnergy')}
-                  onToggleMute={() => handleToggleMute('afternoonEnergy')}
-                />
-                <SliderField
-                  label="Cognitive Focus"
-                  sublabel="Ability to maintain mental concentration without brain fog"
-                  value={focus}
-                  onChange={setFocus}
-                  minLabel="1 (Distracted)"
-                  maxLabel="10 (Laser focus)"
-                  isMuted={mutedMetrics.includes('focus')}
-                  onToggleMute={() => handleToggleMute('focus')}
-                />
-              </div>
-
-              <div className="pt-2">
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                  Experienced Afternoon Slump?
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                    <input
-                      type="radio"
-                      name="afternoonSlump"
-                      checked={afternoonSlump === true}
-                      onChange={() => setAfternoonSlump(true)}
-                      className="accent-[var(--accent)]"
-                    />
-                    Yes (Severe drop in energy)
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]">
-                    <input
-                      type="radio"
-                      name="afternoonSlump"
-                      checked={afternoonSlump === false}
-                      onChange={() => setAfternoonSlump(false)}
-                      className="accent-[var(--accent)]"
-                    />
-                    No (Steady energy)
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 5: EVENING & NOTES */}
-        <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
-          <div
-            onClick={() => toggleSectionCollapse('evening')}
-            className="flex items-center justify-between border-b border-[var(--border-default)] pb-3 cursor-pointer select-none group"
-          >
-            <div className="flex items-center gap-2">
-              <Moon className="w-4 h-4 text-[var(--text-primary)]" />
-              <h2 className="text-base font-sans font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                5. Evening Readiness & Notes
-              </h2>
-            </div>
-            <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
-              {collapsedSections['evening'] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {!collapsedSections['evening'] && (
-            <div className="space-y-4 pt-5">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
-                  Did I naturally feel sleepy before bedtime?
-                </label>
-                <div className="flex flex-wrap gap-4">
-                  {(['Yes', 'Somewhat', 'No'] as SleepyBeforeBedOption[]).map((option) => (
-                    <label
-                      key={option}
-                      className="flex items-center gap-2 cursor-pointer text-xs font-sans text-[var(--text-primary)]"
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMaximizedCategoryId(maximizedCategoryId === cat.id ? null : cat.id);
+                      }}
+                      className="p-1 text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:bg-[var(--surface-raised)] rounded transition-colors"
+                      title={maximizedCategoryId === cat.id ? 'Restore Page View' : 'Focus / Expand Category'}
                     >
-                      <input
-                        type="radio"
-                        name="sleepyBeforeBed"
-                        checked={naturallySleepyBeforeBed === option}
-                        onChange={() => setNaturallySleepyBeforeBed(option)}
-                        className="accent-[var(--accent)]"
-                      />
-                      {option}
-                    </label>
-                  ))}
+                      {maximizedCategoryId === cat.id ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                    <button type="button" className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded">
+                      {collapsedSections[cat.id] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Qualitative Observations / Daily Notes
-                </label>
-                <textarea
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Record anything noteworthy: subjective reflections, stress, diet variations, environment..."
-                  className="w-full border border-[var(--border-default)] rounded-md p-3 text-xs font-serif bg-[var(--surface-raised)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-                />
-              </div>
-            </div>
-          )}
-        </section>
+                {!collapsedSections[cat.id] && (
+                  <div className="pt-5 space-y-4">
+                    {catMetrics.length === 0 ? (
+                      <p className="text-xs text-[var(--text-tertiary)] italic">
+                        No active metrics in this category. Click &quot;Customize Protocol Structure&quot; to add metrics.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {catMetrics.map((m) => renderMetricItem(m, 0))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            );
+          })}
 
         {/* SECTION 6: CONFOUNDING FACTORS */}
         <section className="bg-[var(--surface)] rounded-lg border border-[var(--border-default)] p-6 transition-all">
@@ -978,6 +1025,189 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
             <Save className="w-4 h-4" /> Save Daily Entry
           </button>
         </div>
+      {/* CATEGORY FOCUS / MAXIMIZE OVERLAY */}
+      {maximizedCategoryId && isMounted && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-[var(--canvas)] p-4 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200">
+          <div className="w-full space-y-6">
+            {/* Focus Bar */}
+            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] font-semibold block">
+                    Focused Category Workspace
+                  </span>
+                  <h3 className="font-serif text-lg font-medium text-[var(--text-primary)]">
+                    {getFocusedCategoryTitle(maximizedCategoryId)}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  disabled={!canNavigatePrevCategory}
+                  onClick={handleNavigatePrevCategory}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Category
+                </button>
+                <button
+                  type="button"
+                  disabled={!canNavigateNextCategory}
+                  onClick={handleNavigateNextCategory}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
+                >
+                  Next Category <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaximizedCategoryId(null)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium rounded-md transition-colors shadow-xs"
+                >
+                  <Minimize2 className="w-4 h-4" /> Exit Focus Mode
+                </button>
+              </div>
+            </div>
+
+            {/* Focused Content Container */}
+            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-6 shadow-sm space-y-4">
+              <div className="text-xs text-[var(--text-secondary)] border-b border-[var(--border-default)] pb-3 font-medium">
+                Showing all observations and branching logic for category: <strong className="text-[var(--text-primary)]">&quot;{getFocusedCategoryTitle(maximizedCategoryId)}&quot;</strong>
+              </div>
+
+              {/* Render Focused Content */}
+              {maximizedCategoryId === 'sleep' && (
+                <div className="space-y-5 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                        Lights Out Time
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={lightsOut}
+                        onChange={(e) => setLightsOut(e.target.value)}
+                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                      />
+                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                        Estimated Sleep Time
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={estimatedSleepTime}
+                        onChange={(e) => setEstimatedSleepTime(e.target.value)}
+                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                      />
+                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                        Natural / Final Wake Time
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={naturalWakeTime}
+                        onChange={(e) => setNaturalWakeTime(e.target.value)}
+                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                      />
+                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--surface)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[var(--accent)]" />
+                      <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+                        Estimated Total Sleep Duration:
+                      </span>
+                    </div>
+                    <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
+                      {calculatedMetrics.totalSleepFormatted}
+                      <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
+                        ({calculatedMetrics.totalSleepMinutes} minutes)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {maximizedCategoryId === 'confounders' && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-[var(--border-default)]">
+                    <span className="text-xs font-medium text-[var(--text-secondary)]">Select Confounding Factors</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfounderModalOpen(true)}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] rounded-md text-[var(--text-primary)] transition-colors"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[var(--accent)]" /> Customize Confounders List
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {confounderOptions.map((conf) => {
+                      const isSelected = confounders.includes(conf);
+                      return (
+                        <button
+                          key={conf}
+                          type="button"
+                          onClick={() => {
+                            setConfounders((prev) =>
+                              prev.includes(conf) ? prev.filter((c) => c !== conf) : [...prev, conf]
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-sans transition-colors border ${
+                            isSelected
+                              ? 'bg-[var(--accent)] text-white border-transparent shadow-xs font-medium'
+                              : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {conf}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {maximizedCategoryId !== 'sleep' && maximizedCategoryId !== 'confounders' && (
+                <div className="pt-2 space-y-4">
+                  {(() => {
+                    const catMetrics = effectiveSchema.metrics
+                      .filter((m) => m.categoryId === maximizedCategoryId && m.active !== false)
+                      .sort((a, b) => a.order - b.order);
+
+                    if (catMetrics.length === 0) {
+                      return (
+                        <p className="text-xs text-[var(--text-tertiary)] italic">
+                          No active metrics in this category.
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {catMetrics.map((m) => renderMetricItem(m, 0))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       </form>
 
       {/* CONFOUNDER MANAGER MODAL */}
@@ -1024,4 +1254,17 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       )}
     </>
   );
+
+  if (isFormMaximized && isMounted) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] w-screen h-screen bg-[var(--canvas)] p-4 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {mainFormBody}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  return mainFormBody;
 };

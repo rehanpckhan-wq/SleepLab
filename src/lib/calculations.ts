@@ -64,6 +64,70 @@ export function calculateRecoveryIndex(
 }
 
 /**
+ * Computes dynamic metrics including total sleep duration and Recovery Index
+ * based on selected recovery index metric IDs or fallback defaults.
+ */
+export function computeDynamicMetrics(
+  estimatedSleepTime: string,
+  naturalWakeTime: string,
+  metricsData: Record<string, any>,
+  recoveryIndexMetricIds?: string[],
+  fallbackMorning?: MorningData,
+  fallbackRecovery?: RecoveryData,
+  fallbackAfternoon?: AfternoonData
+): CalculatedMetrics {
+  const { totalMinutes, formatted } = calculateSleepDuration(estimatedSleepTime, naturalWakeTime);
+
+  let score = 0;
+  let maxScore = 50;
+  let percentage = 0;
+
+  if (recoveryIndexMetricIds && recoveryIndexMetricIds.length > 0) {
+    let validCount = 0;
+    let sum = 0;
+    for (const metricId of recoveryIndexMetricIds) {
+      const val = metricsData[metricId];
+      if (typeof val === 'number') {
+        sum += val;
+        validCount += 1;
+      }
+    }
+    if (validCount > 0) {
+      maxScore = validCount * 10;
+      score = sum;
+      percentage = Math.round((sum / maxScore) * 100);
+    } else {
+      score = 0;
+      maxScore = recoveryIndexMetricIds.length * 10;
+      percentage = 0;
+    }
+  } else if (fallbackMorning && fallbackRecovery && fallbackAfternoon) {
+    const res = calculateRecoveryIndex(fallbackMorning, fallbackRecovery, fallbackAfternoon);
+    score = res.score;
+    percentage = res.percentage;
+    maxScore = 50;
+  } else {
+    // Fallback reading from metricsData if present
+    const keys = ['morningAlertness', 'mood', 'skinHealth', 'muscleFullness', 'afternoonEnergy'];
+    let sum = 0;
+    for (const k of keys) {
+      if (typeof metricsData[k] === 'number') sum += metricsData[k];
+    }
+    score = sum;
+    maxScore = 50;
+    percentage = Math.round((score / 50) * 100);
+  }
+
+  return {
+    totalSleepMinutes: totalMinutes,
+    totalSleepFormatted: formatted,
+    recoveryIndexScore: score,
+    recoveryIndexMaxScore: maxScore,
+    recoveryIndexPercentage: percentage,
+  };
+}
+
+/**
  * Computes all calculated metrics for a daily entry.
  */
 export function computeMetrics(
@@ -80,6 +144,7 @@ export function computeMetrics(
     totalSleepMinutes: totalMinutes,
     totalSleepFormatted: formatted,
     recoveryIndexScore: score,
+    recoveryIndexMaxScore: 50,
     recoveryIndexPercentage: percentage,
   };
 }

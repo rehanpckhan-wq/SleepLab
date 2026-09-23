@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DailyEntry, StudyConfig, StudyProtocol } from '@/types/sleeplab';
+import { DailyEntry, StudyConfig, StudyProtocol, StudySchema } from '@/types/sleeplab';
 import {
   fetchEntriesAsync,
   fetchStudyConfigAsync,
   fetchCustomMetricDefinitionsAsync,
   saveStudyConfigAsync,
+  saveStudyAsync,
   getLocalStudyConfig,
   hasUnmigratedLocalData,
   fetchStudiesAsync,
@@ -24,7 +25,8 @@ import { SyncBanner } from './SyncBanner';
 import { StudySettingsModal } from './StudySettingsModal';
 import { CreateStudyModal } from './CreateStudyModal';
 import { ExportDialog } from './ExportDialog';
-import { PlusCircle, ListFilter, FileText, FlaskConical } from 'lucide-react';
+import { ProtocolSchemaEditorModal } from './ProtocolSchemaEditorModal';
+import { PlusCircle, ListFilter, FileText, FlaskConical, Sliders } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const [entries, setEntries] = useState<DailyEntry[]>([]);
@@ -44,11 +46,14 @@ export const Dashboard: React.FC = () => {
   const [isStudySettingsOpen, setIsStudySettingsOpen] = useState<boolean>(false);
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState<boolean>(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false);
+  const [isSchemaEditorOpen, setIsSchemaEditorOpen] = useState<boolean>(false);
   const [showSyncBanner, setShowSyncBanner] = useState<boolean>(false);
 
   // Export PDF compilation state
   const [exportEntries, setExportEntries] = useState<DailyEntry[] | undefined>(undefined);
   const [exportScopeLabel, setExportScopeLabel] = useState<string>('');
+  const [isReportMaximized, setIsReportMaximized] = useState<boolean>(false);
+  const [isEditMaximized, setIsEditMaximized] = useState<boolean>(false);
 
   const refreshData = useCallback(
     async (uid?: string | null) => {
@@ -167,6 +172,23 @@ export const Dashboard: React.FC = () => {
     refreshData(userId);
   };
 
+  const handleSaveSchema = async (newSchema: StudySchema) => {
+    const updatedStudy: StudyProtocol = {
+      ...activeStudy,
+      schema: newSchema,
+    };
+    // Update active study locally in state immediately for fast response
+    setStudies((prev) =>
+      prev.map((s) => (s.id === updatedStudy.id ? updatedStudy : s))
+    );
+    try {
+      await saveStudyAsync(updatedStudy, userId);
+    } catch (e) {
+      console.warn('Supabase save failed, study updated locally:', e);
+    }
+    await refreshData(userId);
+  };
+
   const handleSignOut = async () => {
     if (typeof window !== 'undefined') {
       try {
@@ -186,7 +208,8 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleSelectEntryForEdit = (entry: DailyEntry) => {
+  const handleSelectEntryForEdit = (entry: DailyEntry, isMaximized?: boolean) => {
+    setIsEditMaximized(Boolean(isMaximized));
     setSelectedEntryToEdit(entry);
     setSelectedReportEntry(null);
     setExportEntries(undefined);
@@ -194,7 +217,8 @@ export const Dashboard: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleViewReport = (entry: DailyEntry) => {
+  const handleViewReport = (entry: DailyEntry, isMaximized?: boolean) => {
+    setIsReportMaximized(Boolean(isMaximized));
     setSelectedReportEntry(entry);
     setSelectedEntryToEdit(null);
     setExportEntries(undefined);
@@ -330,6 +354,13 @@ export const Dashboard: React.FC = () => {
               <ListFilter className="w-3.5 h-3.5 text-[var(--accent)]" /> Log & Trends ({filteredEntries.length})
             </button>
           </div>
+
+          <button
+            onClick={() => setIsSchemaEditorOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] text-[var(--text-primary)] border border-[var(--border-default)] text-xs font-sans font-medium rounded-md transition-colors self-start sm:self-auto mb-2 sm:mb-0"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[var(--accent)]" /> Customize Protocol Structure
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -349,13 +380,16 @@ export const Dashboard: React.FC = () => {
             <DailyLogForm
               key={selectedEntryToEdit ? selectedEntryToEdit.id : `new-entry-${activeStudy.id}`}
               initialEntry={selectedEntryToEdit}
+              studySchema={activeStudy.schema}
               userId={userId}
               onSaved={handleSavedEntry}
               onCancel={selectedEntryToEdit ? () => setActiveTab('history') : undefined}
+              onOpenSchemaEditor={() => setIsSchemaEditorOpen(true)}
             />
           </div>
         ) : activeTab === 'report' && selectedReportEntry ? (
           <DailyReport
+            initialMaximized={isReportMaximized}
             entry={selectedReportEntry}
             allEntries={filteredEntries}
             studyConfig={{
@@ -363,6 +397,7 @@ export const Dashboard: React.FC = () => {
               title: activeStudy.title,
               startDate: activeStudy.startDate,
               durationDays: activeStudy.durationDays,
+              schema: activeStudy.schema,
             }}
             exportEntries={exportEntries}
             exportScopeLabel={exportScopeLabel}
@@ -382,6 +417,7 @@ export const Dashboard: React.FC = () => {
               title: activeStudy.title,
               startDate: activeStudy.startDate,
               durationDays: activeStudy.durationDays,
+              schema: activeStudy.schema,
             }}
             onSelectEntry={handleSelectEntryForEdit}
             onViewReport={handleViewReport}
@@ -426,9 +462,18 @@ export const Dashboard: React.FC = () => {
           title: activeStudy.title,
           startDate: activeStudy.startDate,
           durationDays: activeStudy.durationDays,
+          schema: activeStudy.schema,
         }}
         onClose={() => setIsStudySettingsOpen(false)}
         onSave={handleSaveStudyConfig}
+      />
+
+      {/* Protocol Schema Editor Modal */}
+      <ProtocolSchemaEditorModal
+        isOpen={isSchemaEditorOpen}
+        study={activeStudy}
+        onClose={() => setIsSchemaEditorOpen(false)}
+        onSaveSchema={handleSaveSchema}
       />
 
       {/* Flexible Export PDF Dialog */}
@@ -440,6 +485,7 @@ export const Dashboard: React.FC = () => {
           title: activeStudy.title,
           startDate: activeStudy.startDate,
           durationDays: activeStudy.durationDays,
+          schema: activeStudy.schema,
         }}
         selectedEntry={selectedReportEntry}
         onClose={() => setIsExportDialogOpen(false)}

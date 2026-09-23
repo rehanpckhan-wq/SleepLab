@@ -1,5 +1,6 @@
-import { DailyEntry, CustomMetricDefinition, StudyConfig, StudyProtocol, StudyStatus } from '@/types/sleeplab';
+import { DailyEntry, CustomMetricDefinition, StudyConfig, StudyProtocol, StudyStatus, StudySchema } from '@/types/sleeplab';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { getDefaultStudySchema } from './defaultSchema';
 
 const STORAGE_KEY = 'sleeplab_entries_v1';
 const START_DATE_KEY = 'sleeplab_start_date_v1';
@@ -52,6 +53,7 @@ export function getLocalStudies(): StudyProtocol[] {
     title: 'SleepLab N=1 Longitudinal Study',
     startDate: defaultStartDate,
     durationDays: 30,
+    schema: getDefaultStudySchema(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -62,7 +64,20 @@ export function getLocalStudies(): StudyProtocol[] {
     const raw = localStorage.getItem(STUDIES_LIST_KEY);
     if (raw) {
       const parsed: StudyProtocol[] = JSON.parse(raw);
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        return parsed.map((s) => {
+          const rawSchema = s.schema || getDefaultStudySchema();
+          return {
+            ...s,
+            schema: {
+              ...rawSchema,
+              metrics: (rawSchema.metrics || []).filter(
+                (m) => m.id !== 'alarmWake' && m.id !== 'numberOfAwakenings'
+              ),
+            },
+          };
+        });
+      }
     }
 
     // Try reading legacy single study config without calling getLocalStudyConfig()
@@ -74,6 +89,7 @@ export function getLocalStudies(): StudyProtocol[] {
         title: legacyConfig.title || 'SleepLab N=1 Longitudinal Study',
         startDate: legacyConfig.startDate || defaultStartDate,
         durationDays: legacyConfig.durationDays || 30,
+        schema: getDefaultStudySchema(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -117,12 +133,17 @@ export function saveLocalStudy(study: StudyProtocol): StudyProtocol[] {
   const studies = getLocalStudies();
   const existingIdx = studies.findIndex((s) => s.id === study.id);
 
+  const studyWithSchema: StudyProtocol = {
+    ...study,
+    schema: study.schema || getDefaultStudySchema(),
+  };
+
   let updated: StudyProtocol[];
   if (existingIdx >= 0) {
     updated = [...studies];
-    updated[existingIdx] = { ...study, updatedAt: new Date().toISOString() };
+    updated[existingIdx] = { ...studyWithSchema, updatedAt: new Date().toISOString() };
   } else {
-    updated = [...studies, { ...study, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+    updated = [...studies, { ...studyWithSchema, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
   }
 
   if (typeof window !== 'undefined') {
@@ -156,6 +177,7 @@ export async function fetchStudiesAsync(userId?: string | null): Promise<StudyPr
       startDate: row.start_date,
       durationDays: row.duration_days,
       description: row.description || undefined,
+      schema: row.schema || getDefaultStudySchema(),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -173,24 +195,42 @@ export async function fetchStudiesAsync(userId?: string | null): Promise<StudyPr
 }
 
 export async function saveStudyAsync(study: StudyProtocol, userId?: string | null): Promise<StudyProtocol> {
-  saveLocalStudy(study);
+  const studyToSave: StudyProtocol = {
+    ...study,
+    schema: study.schema || getDefaultStudySchema(),
+  };
+
+  saveLocalStudy(studyToSave);
 
   if (!isSupabaseConfigured() || !supabase || !userId) {
-    return study;
+    return studyToSave;
   }
 
   try {
-    const { error } = await supabase.from('studies').upsert({
-      id: study.id,
+    const rowPayload: any = {
+      id: studyToSave.id,
       user_id: userId,
-      title: study.title,
-      start_date: study.startDate,
-      duration_days: study.durationDays,
-      description: study.description || null,
+      title: studyToSave.title,
+      start_date: studyToSave.startDate,
+      duration_days: studyToSave.durationDays,
+      description: studyToSave.description || null,
+      schema: studyToSave.schema,
       updated_at: new Date().toISOString(),
-    });
+    };
+
+    let { error } = await supabase.from('studies').upsert(rowPayload);
+    
+    // Check if error is due to missing 'schema' column in Supabase studies table
+    if (error && (error.message?.includes('schema') || error.code === 'PGRST204')) {
+      console.warn('Supabase studies table does not have a "schema" column yet. Saving locally.');
+      // Attempt fallback save without schema column so basic study metadata updates
+      const { schema, ...fallbackPayload } = rowPayload;
+      await supabase.from('studies').upsert(fallbackPayload);
+      return studyToSave;
+    }
+
     if (error) throw error;
-    return study;
+    return studyToSave;
   } catch (err) {
     console.error('Failed to save study to Supabase:', err);
     throw err;
@@ -685,6 +725,7 @@ function dbToDailyEntry(row: any): DailyEntry {
     confounders: row.confounders || [],
     mutedMetrics: row.muted_metrics || [],
     additionalMetrics: row.additional_metrics || {},
+    metricsData: row.metrics_data || {},
     calculatedMetrics: row.calculated_metrics,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -707,6 +748,7 @@ function dailyEntryToDb(entry: DailyEntry, userId: string): any {
     confounders: entry.confounders || [],
     muted_metrics: entry.mutedMetrics || [],
     additional_metrics: entry.additionalMetrics || {},
+    metrics_data: entry.metricsData || {},
     calculated_metrics: entry.calculatedMetrics,
     updated_at: new Date().toISOString(),
   };

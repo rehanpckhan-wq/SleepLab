@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DailyEntry, CustomMetricDefinition } from '@/types/sleeplab';
 import { getCustomMetricDefinitions, generateReportId } from '@/lib/storage';
 import {
@@ -12,24 +13,31 @@ import {
   CheckCircle2,
   XCircle,
   Printer,
+  GitFork,
+  Table,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
-import { StudyConfig } from '@/types/sleeplab';
+import { StudyConfig, StudyCategory, StudyMetric, DependentRule } from '@/types/sleeplab';
+import { getDefaultStudySchema } from '@/lib/defaultSchema';
 import { SingleReportPrint } from './SingleReportPrint';
 
 interface DailyReportProps {
+  initialMaximized?: boolean;
   entry: DailyEntry;
   allEntries: DailyEntry[];
   studyConfig?: StudyConfig;
   exportEntries?: DailyEntry[];
   exportScopeLabel?: string;
   onBackToHistory: () => void;
-  onEditEntry: (entry: DailyEntry) => void;
+  onEditEntry: (entry: DailyEntry, isMaximized?: boolean) => void;
   onNavigateToEntry: (entry: DailyEntry) => void;
   onOpenExportDialog?: () => void;
 }
 
 export const DailyReport: React.FC<DailyReportProps> = ({
+  initialMaximized,
   entry,
   allEntries,
   studyConfig,
@@ -40,6 +48,27 @@ export const DailyReport: React.FC<DailyReportProps> = ({
   onNavigateToEntry,
   onOpenExportDialog,
 }) => {
+  const [viewMode, setViewMode] = useState<'tree' | 'table'>('tree');
+  const [isMaximized, setIsMaximized] = useState(initialMaximized || false);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+  useEffect(() => { if (initialMaximized !== undefined) setIsMaximized(initialMaximized); }, [initialMaximized]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('sleeplab_report_view_mode');
+      if (savedMode === 'table' || savedMode === 'tree') {
+        setViewMode(savedMode);
+      }
+    }
+  }, []);
+
+  const handleToggleViewMode = (mode: 'tree' | 'table') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sleeplab_report_view_mode', mode);
+    }
+  };
   const reportId = entry.reportId || generateReportId(entry.date, entry.dayNumber);
   const customMetricDefs = getCustomMetricDefinitions();
   const metricDefsMap = new Map<string, CustomMetricDefinition>(
@@ -130,8 +159,12 @@ export const DailyReport: React.FC<DailyReportProps> = ({
       })
     : [];
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16">
+  const reportBody = (
+    <div className={
+    isMaximized
+      ? "fixed inset-0 z-[9999] w-screen h-screen bg-[var(--canvas)] p-4 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200"
+      : "max-w-4xl mx-auto space-y-6 pb-16 font-sans text-[var(--text-primary)]"
+  }>
       {/* 1. INTERACTIVE SCREEN VIEW (Hidden during printing) */}
       <div className="space-y-6 print:hidden">
         {/* Navigation Header Controls */}
@@ -176,15 +209,59 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               </span>
             )}
 
+            {/* View Mode Toggle: Tree vs Table */}
+            <div className="flex items-center bg-[var(--surface-raised)] border border-[var(--border-default)] p-0.5 rounded-md text-xs font-sans font-medium mr-2">
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('tree')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] transition-colors ${
+                  viewMode === 'tree'
+                    ? 'bg-[var(--surface)] text-[var(--accent)] font-semibold shadow-xs'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+                title="Tree Branch View: Nested cards connected with branch lines"
+              >
+                <GitFork className="w-3.5 h-3.5" /> Tree View
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('table')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-[var(--surface)] text-[var(--accent)] font-semibold shadow-xs'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+                title="Table Hierarchy View: Compact academic table with sub-row tree indicators (↳)"
+              >
+                <Table className="w-3.5 h-3.5" /> Table View
+              </button>
+            </div>
+
             <button
               onClick={onOpenExportDialog || handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors ml-2"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors"
             >
               <Printer className="w-4 h-4 text-[var(--accent)]" /> Export PDF Report
             </button>
 
             <button
-              onClick={() => onEditEntry(entry)}
+              type="button"
+              onClick={() => setIsMaximized((prev) => !prev)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors"
+              title={isMaximized ? 'Restore View' : 'Maximize Fullscreen Report'}
+            >
+              {isMaximized ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Restore View
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Maximize Report
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => onEditEntry(entry, isMaximized)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-sans font-medium rounded-md transition-colors shadow-sm"
             >
               <Edit3 className="w-3.5 h-3.5" /> Edit Record
@@ -310,214 +387,176 @@ export const DailyReport: React.FC<DailyReportProps> = ({
                       Calculated Metric
                     </td>
                   </tr>
-                  <tr>
-                    <td className="py-2.5 px-4 font-medium text-[var(--text-primary)]">Woke Up to Alarm?</td>
-                    <td className="py-2.5 px-4 font-sans font-medium">
-                      {entry.sleep.alarmWake ? (
-                        <span className="inline-flex items-center gap-1 text-[var(--warning)] bg-[var(--warning-soft)] px-2.5 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3" /> Yes (Alarm)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[var(--success)] bg-[var(--success-soft)] px-2.5 py-0.5 rounded-full">
-                          <XCircle className="w-3 h-3" /> No (Natural Wake)
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-sans text-[10px] text-[var(--text-tertiary)]">
-                      Raw Input
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 px-4 font-medium text-[var(--text-primary)]">Number of Awakenings</td>
-                    <td className="py-2.5 px-4 font-sans font-medium text-[var(--text-primary)]">
-                      {entry.sleep.numberOfAwakenings}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-sans text-[10px] text-[var(--text-tertiary)]">
-                      Raw Input
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 px-4 font-medium text-[var(--text-primary)]">Awakening Reason(s)</td>
-                    <td className="py-2.5 px-4">
-                      {entry.sleep.awakeningReasons.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {entry.sleep.awakeningReasons.map((reason) => (
-                            <span
-                              key={reason}
-                              className="px-2.5 py-0.5 bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-full text-[11px] text-[var(--text-secondary)] font-sans"
-                            >
-                              {reason}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-[var(--text-tertiary)] italic font-sans">None reported</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-sans text-[10px] text-[var(--text-tertiary)]">
-                      Raw Input
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
           </section>
 
-          {/* 02 — MORNING ASSESSMENT */}
-          {(!entry.mutedMetrics?.includes('morningAlertness') ||
-            !entry.mutedMetrics?.includes('sleepInertia') ||
-            !entry.mutedMetrics?.includes('mood') ||
-            !entry.mutedMetrics?.includes('motivation')) && (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                  <span className="font-sans text-xs text-[var(--accent)] font-medium">02 —</span> Morning Assessment
-                </h2>
-                <span className="text-xs font-sans text-[var(--text-tertiary)]">~45 mins post-wake</span>
-              </div>
+          {/* DYNAMIC CATEGORIES REPORT SECTIONS */}
+          {(() => {
+            const schema = studyConfig?.schema || getDefaultStudySchema();
+            const nonSleepCategories = schema.categories
+              .filter((c: StudyCategory) => c.id !== 'cat-sleep')
+              .sort((a: StudyCategory, b: StudyCategory) => a.order - b.order);
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {!entry.mutedMetrics?.includes('morningAlertness') &&
-                  renderScoreBar(
-                    entry.morning.morningAlertness,
-                    10,
-                    'Morning Alertness',
-                    'Sharpness and wakefulness (Contributes to Recovery Index)'
-                  )}
-                {!entry.mutedMetrics?.includes('sleepInertia') &&
-                  renderScoreBar(
-                    entry.morning.sleepInertia,
-                    10,
-                    'Sleep Inertia',
-                    'Heavy grogginess or difficulty waking up'
-                  )}
-                {!entry.mutedMetrics?.includes('mood') &&
-                  renderScoreBar(
-                    entry.morning.mood,
-                    10,
-                    'Subjective Mood',
-                    'Emotional state (Contributes to Recovery Index)'
-                  )}
-                {!entry.mutedMetrics?.includes('motivation') &&
-                  renderScoreBar(
-                    entry.morning.motivation,
-                    10,
-                    'Daily Motivation',
-                    'Drive and eagerness for daily tasks'
-                  )}
-              </div>
-            </section>
-          )}
+            return nonSleepCategories.map((cat: StudyCategory, catIdx: number) => {
+              const catMetrics = schema.metrics
+                .filter((m: StudyMetric) => m.categoryId === cat.id && m.active !== false)
+                .sort((a: StudyMetric, b: StudyMetric) => a.order - b.order);
 
-          {/* 03 — PHYSICAL & SUBJECTIVE RECOVERY */}
-          {(!entry.mutedMetrics?.includes('skinHealth') ||
-            !entry.mutedMetrics?.includes('muscleFullness') ||
-            !entry.mutedMetrics?.includes('workoutEnergy') ||
-            !entry.mutedMetrics?.includes('bodyFreshness')) && (
-            <section className="space-y-4">
-              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                  <span className="font-sans text-xs text-[var(--accent)] font-medium">03 —</span> Physical & Subjective Recovery
-                </h2>
-                <span className="text-xs font-sans text-[var(--text-tertiary)]">Physiological Markers</span>
-              </div>
+              const renderReportMetricNode = (m: StudyMetric, depth: number = 0): React.ReactNode => {
+                if (entry.mutedMetrics?.includes(m.id)) return null;
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {!entry.mutedMetrics?.includes('skinHealth') &&
-                  renderScoreBar(
-                    entry.recovery.skinHealth,
-                    10,
-                    'Skin Health Observation',
-                    'Clarity, hydration & tone (Contributes to Recovery Index)'
-                  )}
-                {!entry.mutedMetrics?.includes('muscleFullness') &&
-                  renderScoreBar(
-                    entry.recovery.muscleFullness,
-                    10,
-                    'Muscle Fullness',
-                    'Glycogen & physical tone (Contributes to Recovery Index)'
-                  )}
-                {!entry.mutedMetrics?.includes('workoutEnergy') &&
-                  renderScoreBar(
-                    entry.recovery.workoutEnergy,
-                    10,
-                    'Workout Energy',
-                    'Readiness for physical training'
-                  )}
-                {!entry.mutedMetrics?.includes('bodyFreshness') &&
-                  renderScoreBar(
-                    entry.recovery.bodyFreshness,
-                    10,
-                    'Body Freshness',
-                    'Absence of systemic muscle soreness'
-                  )}
-              </div>
+                const rawVal =
+                  m.id === 'morningAlertness' ? entry.morning.morningAlertness :
+                  m.id === 'sleepInertia' ? entry.morning.sleepInertia :
+                  m.id === 'mood' ? entry.morning.mood :
+                  m.id === 'motivation' ? entry.morning.motivation :
+                  m.id === 'skinHealth' ? entry.recovery.skinHealth :
+                  m.id === 'muscleFullness' ? entry.recovery.muscleFullness :
+                  m.id === 'workoutEnergy' ? entry.recovery.workoutEnergy :
+                  m.id === 'bodyFreshness' ? entry.recovery.bodyFreshness :
+                  m.id === 'afternoonEnergy' ? entry.afternoon.afternoonEnergy :
+                  m.id === 'focus' ? entry.afternoon.focus :
+                  entry.metricsData?.[m.id];
 
-              {/* Recovery Index Source Info Box */}
-              <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-sans font-medium text-[var(--text-primary)]">
-                    <Award className="w-4 h-4 text-[var(--accent)]" /> RECOVERY INDEX BREAKDOWN
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    Unweighted sum of core active markers.
-                  </p>
-                </div>
-                <div className="text-right sm:border-l sm:border-[var(--border-default)] sm:pl-4 flex-shrink-0">
-                  <div className="text-2xl font-sans font-semibold text-[var(--text-primary)]">
-                    {entry.calculatedMetrics.recoveryIndexScore} / 50
-                  </div>
-                  <div className="text-xs font-sans text-[var(--accent)] font-medium">
-                    {entry.calculatedMetrics.recoveryIndexPercentage}% Score
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
+                if (rawVal === undefined || rawVal === null || rawVal === '') return null;
 
-          {/* 04 — AFTERNOON FUNCTIONING */}
-          {(!entry.mutedMetrics?.includes('afternoonEnergy') ||
-            !entry.mutedMetrics?.includes('focus') ||
-            !entry.mutedMetrics?.includes('afternoonSlump')) && (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
-                <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-                  <span className="font-sans text-xs text-[var(--accent)] font-medium">04 —</span> Afternoon Functioning
-                </h2>
-                <span className="text-xs font-sans text-[var(--text-tertiary)]">Mid-Day Observation</span>
-              </div>
+                // Evaluate dependent sub-rules
+                const activeRules = (m.dependentRules || []).filter((rule) => {
+                  if (rule.condition === 'isTrue') return Boolean(rawVal) === true;
+                  if (rule.condition === 'isFalse') return Boolean(rawVal) === false;
+                  if (rule.condition === 'equals') return String(rawVal) === String(rule.targetValue);
+                  if (rule.condition === 'greaterThan') return Number(rawVal) > Number(rule.targetValue);
+                  if (rule.condition === 'lessThan') return Number(rawVal) < Number(rule.targetValue);
+                  if (rule.condition === 'contains') return Array.isArray(rawVal) && rawVal.includes(rule.targetValue);
+                  return false;
+                });
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {!entry.mutedMetrics?.includes('afternoonEnergy') &&
-                  renderScoreBar(
-                    entry.afternoon.afternoonEnergy,
-                    10,
-                    'Afternoon Energy (14:00-16:00)',
-                    'Sustained vitality (Contributes to Recovery Index)'
-                  )}
-                {!entry.mutedMetrics?.includes('focus') &&
-                  renderScoreBar(
-                    entry.afternoon.focus,
-                    10,
-                    'Cognitive Focus',
-                    'Sustained concentration without brain fog'
-                  )}
-              </div>
+                if (viewMode === 'table') {
+                  return (
+                    <React.Fragment key={m.id}>
+                      <tr className={depth > 0 ? 'bg-[var(--surface-raised)]/50 text-[11px]' : ''}>
+                        <td className="py-2.5 px-4 font-medium text-[var(--text-primary)] flex items-center gap-1.5">
+                          {depth > 0 && <span className="text-[var(--accent)] font-mono">↳</span>}
+                          {m.name}
+                        </td>
+                        <td className="py-2.5 px-4 font-sans text-xs">
+                          {m.type === 'tags' && Array.isArray(rawVal) ? (
+                            <div className="flex flex-wrap gap-1">
+                              {rawVal.map((tag: string) => (
+                                <span key={tag} className="px-2 py-0.5 bg-[var(--accent-soft)] text-[var(--accent)] rounded-full text-[10px]">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : m.type === 'checkbox' ? (
+                            rawVal ? 'Yes' : 'No'
+                          ) : (
+                            `${rawVal} ${m.config?.unit || ''}`
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-sans text-[10px] text-[var(--text-tertiary)]">
+                          {m.type}
+                        </td>
+                      </tr>
+                      {activeRules.map((rule) => renderReportMetricNode(rule.subMetric, depth + 1))}
+                    </React.Fragment>
+                  );
+                }
 
-              {!entry.mutedMetrics?.includes('afternoonSlump') && (
-                <div className="bg-[var(--surface-raised)] p-3.5 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
-                  <span className="text-xs font-sans font-medium text-[var(--text-primary)]">Experienced Afternoon Slump?</span>
-                  <span className="text-xs font-sans font-medium px-3 py-1 rounded-full">
-                    {entry.afternoon.afternoonSlump ? (
-                      <span className="text-[var(--danger)] bg-[var(--danger-soft)] px-2.5 py-0.5 rounded-full">Yes (Slump Observed)</span>
+                // Default Tree View rendering
+                const indentClass = depth > 0 ? 'border-l-2 border-[var(--accent-soft)] pl-4 my-2' : '';
+                return (
+                  <div key={m.id} className={`space-y-3 ${indentClass}`}>
+                    {m.type === 'slider' ? (
+                      renderScoreBar(
+                        Number(rawVal),
+                        m.config?.max || 10,
+                        m.name,
+                        schema.recoveryIndexMetricIds.includes(m.id) ? `${m.description || ''} (Contributes to Recovery)` : m.description
+                      )
+                    ) : m.type === 'tags' && Array.isArray(rawVal) ? (
+                      <div className="bg-[var(--surface-raised)] p-4 rounded-lg border border-[var(--border-default)] space-y-2">
+                        <div className="text-xs font-sans font-medium text-[var(--text-primary)]">{m.name}</div>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {rawVal.map((tag: string) => (
+                            <span key={tag} className="px-2.5 py-1 bg-[var(--accent-soft)] text-[var(--accent)] rounded-full text-xs font-medium">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : m.type === 'select_one' && rawVal ? (
+                      <div className="bg-[var(--surface-raised)] p-4 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-sans font-medium text-[var(--text-primary)]">{m.name}</div>
+                          {m.description && <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">{m.description}</div>}
+                        </div>
+                        <span className="px-2.5 py-1 bg-[var(--accent-soft)] text-[var(--accent)] rounded-full text-xs font-medium border border-[var(--accent)]/30">
+                          {String(rawVal)}
+                        </span>
+                      </div>
                     ) : (
-                      <span className="text-[var(--success)] bg-[var(--success-soft)] px-2.5 py-0.5 rounded-full">No (Steady Energy)</span>
+                      <div className="bg-[var(--surface-raised)] p-4 rounded-lg border border-[var(--border-default)] flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-sans font-medium text-[var(--text-primary)]">{m.name}</div>
+                          {m.description && <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">{m.description}</div>}
+                        </div>
+                        <div className="font-sans text-sm font-semibold text-[var(--accent)]">
+                          {m.type === 'checkbox' ? (rawVal ? 'Yes' : 'No') : String(rawVal)} {m.config?.unit || ''}
+                        </div>
+                      </div>
                     )}
-                  </span>
-                </div>
-              )}
-            </section>
-          )}
+
+                    {/* Triggered Children Tree Rendering */}
+                    {activeRules.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-[10px] font-mono text-[var(--accent)] uppercase flex items-center gap-1">
+                          <GitFork className="w-3 h-3" /> Triggered Sub-Branch:
+                        </div>
+                        {activeRules.map((rule) => renderReportMetricNode(rule.subMetric, depth + 1))}
+                      </div>
+                    )}
+                  </div>
+                );
+              };
+
+              return (
+                <section key={cat.id} className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
+                    <h2 className="text-lg font-serif font-normal text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                      <span className="font-sans text-xs text-[var(--accent)] font-medium">0{catIdx + 2} —</span> {cat.name}
+                    </h2>
+                    {cat.description && (
+                      <span className="text-xs font-sans text-[var(--text-tertiary)]">{cat.description}</span>
+                    )}
+                  </div>
+
+                  {viewMode === 'table' ? (
+                    <div className="border border-[var(--border-default)] rounded-lg overflow-hidden">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-[var(--surface-raised)] border-b border-[var(--border-default)] text-[10px] font-mono uppercase text-[var(--text-secondary)]">
+                          <tr>
+                            <th className="py-2 px-4 font-semibold">Metric</th>
+                            <th className="py-2 px-4 font-semibold">Value</th>
+                            <th className="py-2 px-4 font-semibold text-right">Type</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-default)]">
+                          {catMetrics.map((m: StudyMetric) => renderReportMetricNode(m, 0))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {catMetrics.map((m: StudyMetric) => renderReportMetricNode(m, 0))}
+                    </div>
+                  )}
+                </section>
+              );
+            });
+          })()}
 
           {/* 05 — EVENING READINESS & NOTES */}
           <section className="space-y-4">
@@ -659,7 +698,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
               <Printer className="w-4 h-4 text-[var(--accent)]" /> Export PDF Report
             </button>
             <button
-              onClick={() => onEditEntry(entry)}
+              onClick={() => onEditEntry(entry, isMaximized)}
               className="flex items-center gap-2 px-5 py-2 bg-[var(--accent)] text-white text-xs font-sans font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
             >
               <Edit3 className="w-4 h-4" /> Edit Day {entry.dayNumber} Record
@@ -680,6 +719,7 @@ export const DailyReport: React.FC<DailyReportProps> = ({
                 isFirstReport={index === 0}
                 totalExportCount={exportEntries.length}
                 exportScopeLabel={exportScopeLabel}
+                viewMode={viewMode}
               />
             </React.Fragment>
           ))
@@ -690,9 +730,16 @@ export const DailyReport: React.FC<DailyReportProps> = ({
             isFirstReport={true}
             totalExportCount={1}
             exportScopeLabel={exportScopeLabel}
+            viewMode={viewMode}
           />
         )}
       </div>
     </div>
   );
+
+  if (isMaximized && isMounted) {
+    return createPortal(reportBody, document.body);
+  }
+
+  return reportBody;
 };
