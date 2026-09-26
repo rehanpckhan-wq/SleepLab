@@ -830,6 +830,63 @@ export async function fetchCustomMetricDefinitionsAsync(userId?: string | null):
   }
 }
 
+async function upsertDailyEntriesWithFallbacks(
+  client: any,
+  rows: any | any[],
+  onConflictConstraint: string = 'user_id, date'
+): Promise<any> {
+  const isArray = Array.isArray(rows);
+  let currentRows: any[] = (isArray ? rows : [rows]).map((r) => ({ ...r }));
+
+  const attemptUpsert = async (rList: any[], conflictConstraint: string) => {
+    return await client.from('daily_entries').upsert(isArray ? rList : rList[0], { onConflict: conflictConstraint });
+  };
+
+  const tryLoop = async (conflictConstraint: string) => {
+    let res = await attemptUpsert(currentRows, conflictConstraint);
+    while (res.error) {
+      const msg = res.error.message || res.error.details || '';
+
+      const colMatch =
+        msg.match(/Could not find the ['"]([^'"]+)['"] column/i) ||
+        msg.match(/column ['"]?([^'"]+)['"]? of relation/i) ||
+        msg.match(/has no column named ['"]?([^'"]+)['"]?/i);
+
+      let removed = false;
+      let colToRemove = colMatch?.[1];
+
+      if (!colToRemove) {
+        for (const col of ['metrics_data', 'muted_metrics', 'study_id', 'additional_metrics', 'calculated_metrics', 'report_id']) {
+          if (msg.includes(col)) {
+            colToRemove = col;
+            break;
+          }
+        }
+      }
+
+      if (colToRemove) {
+        for (const r of currentRows) {
+          if (colToRemove in r) {
+            delete r[colToRemove];
+            removed = true;
+          }
+        }
+      }
+
+      if (!removed) break;
+
+      res = await attemptUpsert(currentRows, conflictConstraint);
+    }
+    return res;
+  };
+
+  let result = await tryLoop(onConflictConstraint);
+  if (result.error && onConflictConstraint !== 'id') {
+    result = await tryLoop('id');
+  }
+  return result.error;
+}
+
 export async function saveEntryAsync(
   entry: DailyEntry,
   userId?: string | null
@@ -882,34 +939,7 @@ export async function saveEntryAsync(
     const dbRow = dailyEntryToDb(finalEntry, userId);
     const client = supabase!;
     
-    // Upsert helper with column compatibility fallbacks for older database schemas
-    const upsertWithFallbacks = async (row: any) => {
-      let { error } = await client.from('daily_entries').upsert(row, { onConflict: 'user_id, date' });
-      
-      // If error is due to missing columns in legacy DB schemas, remove them and retry
-      if (error && (error.message?.includes('muted_metrics') || error.message?.includes('study_id'))) {
-        const cleanedRow = { ...row };
-        if (error.message?.includes('muted_metrics')) delete cleanedRow.muted_metrics;
-        if (error.message?.includes('study_id')) delete cleanedRow.study_id;
-        const retry = await client.from('daily_entries').upsert(cleanedRow, { onConflict: 'user_id, date' });
-        if (!retry.error) return null;
-        error = retry.error;
-      }
-
-      if (error) {
-        let retry = await client.from('daily_entries').upsert(row, { onConflict: 'id' });
-        if (retry.error && (retry.error.message?.includes('muted_metrics') || retry.error.message?.includes('study_id'))) {
-          const cleanedRow = { ...row };
-          if (retry.error.message?.includes('muted_metrics')) delete cleanedRow.muted_metrics;
-          if (retry.error.message?.includes('study_id')) delete cleanedRow.study_id;
-          retry = await client.from('daily_entries').upsert(cleanedRow, { onConflict: 'id' });
-        }
-        error = retry.error;
-      }
-      return error;
-    };
-
-    const error = await upsertWithFallbacks(dbRow);
+    const error = await upsertDailyEntriesWithFallbacks(client, dbRow);
     if (error) throw error;
 
     return { entry: finalEntry, isUpdate };
@@ -941,7 +971,8 @@ export async function deleteEntryAsync(id: string, userId?: string | null): Prom
         };
         return dailyEntryToDb(updated, userId);
       });
-      await supabase.from('daily_entries').upsert(reindexedRows, { onConflict: 'user_id, date' });
+      const err = await upsertDailyEntriesWithFallbacks(supabase, reindexedRows);
+      if (err) throw err;
     }
   } catch (err) {
     console.error('Failed to delete entry from Supabase:', err);
@@ -1050,7 +1081,7 @@ export async function deleteCustomMetricDefinitionAsync(id: string, userId?: str
     });
 
     if (modified) {
-      const { error: cascadeErr } = await supabase.from('daily_entries').upsert(cleanedRows, { onConflict: 'user_id, date' });
+      const cascadeErr = await upsertDailyEntriesWithFallbacks(supabase, cleanedRows);
       if (cascadeErr) console.error('Failed to cascade cleanup deleted metric in Supabase entries:', cascadeErr);
     }
   } catch (err) {
@@ -1101,34 +1132,7 @@ export async function migrateLocalStorageToSupabaseAsync(userId: string): Promis
 
   if (localEntries.length > 0) {
     const entryRows = localEntries.map((e) => dailyEntryToDb(e, userId));
-    
-    let { error: entryErr } = await client.from('daily_entries').upsert(entryRows, { onConflict: 'user_id, date' });
-
-    if (entryErr && (entryErr.message?.includes('muted_metrics') || entryErr.message?.includes('study_id'))) {
-      const cleanedRows = entryRows.map((r: any) => {
-        const copy = { ...r };
-        if (entryErr!.message?.includes('muted_metrics')) delete copy.muted_metrics;
-        if (entryErr!.message?.includes('study_id')) delete copy.study_id;
-        return copy;
-      });
-      const retry = await client.from('daily_entries').upsert(cleanedRows, { onConflict: 'user_id, date' });
-      entryErr = retry.error;
-    }
-
-    if (entryErr) {
-      let retry = await client.from('daily_entries').upsert(entryRows, { onConflict: 'id' });
-      if (retry.error && (retry.error.message?.includes('muted_metrics') || retry.error.message?.includes('study_id'))) {
-        const cleanedRows = entryRows.map((r: any) => {
-          const copy = { ...r };
-          if (retry.error!.message?.includes('muted_metrics')) delete copy.muted_metrics;
-          if (retry.error!.message?.includes('study_id')) delete copy.study_id;
-          return copy;
-        });
-        retry = await client.from('daily_entries').upsert(cleanedRows, { onConflict: 'id' });
-      }
-      entryErr = retry.error;
-    }
-
+    const entryErr = await upsertDailyEntriesWithFallbacks(client, entryRows);
     if (entryErr) throw new Error(entryErr.message || entryErr.details || 'Failed to migrate entries');
     entriesMigrated = localEntries.length;
   }

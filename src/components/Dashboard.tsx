@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { DailyEntry, StudyConfig, StudyProtocol, StudySchema } from '@/types/sleeplab';
 import {
   fetchEntriesAsync,
@@ -16,17 +17,25 @@ import {
   reassignEntryStudyAsync,
 } from '@/lib/storage';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
-import { Header } from './Header';
+import { ArrowLeft } from 'lucide-react';
+
+import { Sidebar, ViewMode } from './Sidebar';
+import { TopNav } from './TopNav';
+import { HomeOverview } from './HomeOverview';
 import { DailyLogForm } from './DailyLogForm';
 import { PreviousDaysList } from './PreviousDaysList';
 import { DailyReport } from './DailyReport';
+import { ReportsView } from './ReportsView';
+import { EditRecordsView } from './EditRecordsView';
+import { ExportView } from './ExportView';
+import { SingleReportPrint } from './SingleReportPrint';
+
 import { AuthModal } from './AuthModal';
 import { SyncBanner } from './SyncBanner';
 import { StudySettingsModal } from './StudySettingsModal';
 import { CreateStudyModal } from './CreateStudyModal';
 import { ExportDialog } from './ExportDialog';
 import { ProtocolSchemaEditorModal } from './ProtocolSchemaEditorModal';
-import { PlusCircle, ListFilter, FileText, FlaskConical, Sliders } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const [entries, setEntries] = useState<DailyEntry[]>([]);
@@ -34,12 +43,23 @@ export const Dashboard: React.FC = () => {
   const [studies, setStudies] = useState<StudyProtocol[]>([]);
   const [activeStudyId, setActiveStudyId] = useState<string>(getActiveStudyId());
 
-  const [activeTab, setActiveTab] = useState<'log' | 'history' | 'report'>('log');
+  // Layout & Hover Drawer Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [viewHistory, setViewHistory] = useState<ViewMode[]>(['home']);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  const currentView = viewHistory[historyIndex] || 'home';
+
   const [selectedEntryToEdit, setSelectedEntryToEdit] = useState<DailyEntry | null>(null);
   const [selectedReportEntry, setSelectedReportEntry] = useState<DailyEntry | null>(null);
   const [currentDayNumber, setCurrentDayNumber] = useState<number>(1);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Theme & Mounting State
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
 
   // Modal States
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -49,11 +69,9 @@ export const Dashboard: React.FC = () => {
   const [isSchemaEditorOpen, setIsSchemaEditorOpen] = useState<boolean>(false);
   const [showSyncBanner, setShowSyncBanner] = useState<boolean>(false);
 
-  // Export PDF compilation state
+  // PDF Export fallback state
   const [exportEntries, setExportEntries] = useState<DailyEntry[] | undefined>(undefined);
   const [exportScopeLabel, setExportScopeLabel] = useState<string>('');
-  const [isReportMaximized, setIsReportMaximized] = useState<boolean>(false);
-  const [isEditMaximized, setIsEditMaximized] = useState<boolean>(false);
 
   const refreshData = useCallback(
     async (uid?: string | null) => {
@@ -83,6 +101,9 @@ export const Dashboard: React.FC = () => {
   );
 
   useEffect(() => {
+    const currentTheme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light';
+    setTheme(currentTheme);
+
     if (isSupabaseConfigured() && supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
@@ -118,7 +139,13 @@ export const Dashboard: React.FC = () => {
     }
   }, []);
 
-  // Ensure activeStudy is derived accurately
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('sleeplab_theme', nextTheme);
+  };
+
   const activeStudy: StudyProtocol =
     studies.find((s) => s.id === activeStudyId) ||
     (studies.length > 0 ? studies[0] : {
@@ -130,12 +157,37 @@ export const Dashboard: React.FC = () => {
       updatedAt: new Date().toISOString(),
     });
 
-  // Filter entries to active study
   const filteredEntries = entries.filter((e) => !e.studyId || e.studyId === activeStudy.id);
 
   useEffect(() => {
     setCurrentDayNumber(filteredEntries.length + 1);
   }, [filteredEntries]);
+
+  // Navigation history handler
+  const handleNavigate = (newView: ViewMode) => {
+    if (newView === 'log') {
+      setSelectedEntryToEdit(null);
+    }
+    const newHistory = viewHistory.slice(0, historyIndex + 1);
+    newHistory.push(newView);
+    setViewHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGoBack = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleGoForward = () => {
+    if (historyIndex < viewHistory.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleSelectStudy = (studyId: string) => {
     setActiveStudyId(studyId);
@@ -161,9 +213,7 @@ export const Dashboard: React.FC = () => {
     const freshInstance =
       loadedEntries.find((e) => e.id === savedEntry.id || e.date === savedEntry.date) || entryWithStudy;
     setSelectedReportEntry(freshInstance);
-    setExportEntries(undefined);
-    setActiveTab('report');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('report-detail');
   };
 
   const handleSaveStudyConfig = async (newConfig: StudyConfig) => {
@@ -177,10 +227,7 @@ export const Dashboard: React.FC = () => {
       ...activeStudy,
       schema: newSchema,
     };
-    // Update active study locally in state immediately for fast response
-    setStudies((prev) =>
-      prev.map((s) => (s.id === updatedStudy.id ? updatedStudy : s))
-    );
+    setStudies((prev) => prev.map((s) => (s.id === updatedStudy.id ? updatedStudy : s)));
     try {
       await saveStudyAsync(updatedStudy, userId);
     } catch (e) {
@@ -208,34 +255,18 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleSelectEntryForEdit = (entry: DailyEntry, isMaximized?: boolean) => {
-    setIsEditMaximized(Boolean(isMaximized));
+  const handleSelectEntryForEdit = (entry: DailyEntry) => {
     setSelectedEntryToEdit(entry);
-    setSelectedReportEntry(null);
-    setExportEntries(undefined);
-    setActiveTab('log');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('edit-form');
   };
 
-  const handleViewReport = (entry: DailyEntry, isMaximized?: boolean) => {
-    setIsReportMaximized(Boolean(isMaximized));
+  const handleSelectReport = (entry: DailyEntry) => {
     setSelectedReportEntry(entry);
-    setSelectedEntryToEdit(null);
-    setExportEntries(undefined);
-    setActiveTab('report');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleStartNewLog = () => {
-    setSelectedEntryToEdit(null);
-    setSelectedReportEntry(null);
-    setExportEntries(undefined);
-    setActiveTab('log');
+    handleNavigate('report-detail');
   };
 
   const handleNavigateReportEntry = (targetEntry: DailyEntry) => {
     setSelectedReportEntry(targetEntry);
-    setExportEntries(undefined);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -260,176 +291,251 @@ export const Dashboard: React.FC = () => {
       if (!selectedReportEntry || scope !== 'current') {
         setSelectedReportEntry(targetList[0]);
       }
-      setActiveTab('report');
+      if (currentView !== 'export') {
+        handleNavigate('report-detail');
+      }
       setTimeout(() => {
         window.print();
       }, 300);
     }
   };
 
-  // Average stats calculations for Active Study
-  const totalSleepMinutesSum = filteredEntries.reduce((acc, e) => acc + (e.calculatedMetrics?.totalSleepMinutes || 0), 0);
+  // Average stats calculations
+  const totalSleepMinutesSum = filteredEntries.reduce(
+    (acc, e) => acc + (e.calculatedMetrics?.totalSleepMinutes || 0),
+    0
+  );
   const avgSleepMinutes = filteredEntries.length > 0 ? Math.round(totalSleepMinutesSum / filteredEntries.length) : 0;
   const avgSleepHours = Math.floor(avgSleepMinutes / 60);
   const avgSleepMinsRem = avgSleepMinutes % 60;
   const avgSleepFormatted = filteredEntries.length > 0 ? `${avgSleepHours}h ${avgSleepMinsRem}m` : '0h 0m';
 
-  const recoveryScoresSum = filteredEntries.reduce((acc, e) => acc + (e.calculatedMetrics?.recoveryIndexScore || 0), 0);
-  const avgRecoveryScore = filteredEntries.length > 0 ? Math.round((recoveryScoresSum / filteredEntries.length) * 10) / 10 : 0;
+  const recoveryScoresSum = filteredEntries.reduce(
+    (acc, e) => acc + (e.calculatedMetrics?.recoveryIndexScore || 0),
+    0
+  );
+  const avgRecoveryScore =
+    filteredEntries.length > 0 ? Math.round((recoveryScoresSum / filteredEntries.length) * 10) / 10 : 0;
 
   return (
-    <div className="min-h-screen bg-[var(--canvas)] font-sans text-[var(--text-primary)] flex flex-col transition-colors duration-200">
-      <Header
-        activeStudy={activeStudy}
-        allStudies={studies}
-        currentDayNumber={currentDayNumber > activeStudy.durationDays ? activeStudy.durationDays : currentDayNumber}
-        totalEntriesCount={filteredEntries.length}
-        avgSleepFormatted={avgSleepFormatted}
-        avgRecoveryScore={avgRecoveryScore}
-        userEmail={userEmail}
-        onSelectStudy={handleSelectStudy}
-        onCreateNewStudy={() => setIsCreateStudyOpen(true)}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onSignOut={handleSignOut}
-        onOpenStudySettings={() => setIsStudySettingsOpen(true)}
+    <div className="min-h-screen bg-[var(--canvas)] font-sans text-[var(--text-primary)] flex flex-col transition-colors duration-200 relative overflow-x-hidden">
+      {/* Hover Trigger Zone on Left Screen Edge */}
+      <div
+        className="fixed top-0 left-0 bottom-0 w-3 z-40"
+        onMouseEnter={() => setIsSidebarOpen(true)}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:px-6">
-        {/* Sync Banner when local unmigrated entries exist */}
-        {userId && showSyncBanner && (
-          <SyncBanner
-            userId={userId}
-            onMigrationComplete={() => {
-              setShowSyncBanner(false);
-              refreshData(userId);
-            }}
-          />
-        )}
+      {/* Floating Hover Overlay Sidebar */}
+      <Sidebar
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        isOpen={isSidebarOpen}
+        onCloseSidebar={() => setIsSidebarOpen(false)}
+        onMouseEnterSidebar={() => setIsSidebarOpen(true)}
+        userEmail={userEmail}
+        activeStudyTitle={activeStudy.title}
+        totalEntriesCount={filteredEntries.length}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenStudySettings={() => setIsStudySettingsOpen(true)}
+        onOpenSchemaEditor={() => setIsSchemaEditorOpen(true)}
+        onSignOut={handleSignOut}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--border-default)] gap-4 mb-8">
-          <div className="flex space-x-2 flex-wrap">
-            <button
-              onClick={handleStartNewLog}
-              className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 -mb-px ${
-                activeTab === 'log' && !selectedEntryToEdit
-                  ? 'bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] font-semibold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] border border-transparent font-medium'
-              }`}
-            >
-              <PlusCircle className="w-3.5 h-3.5 text-[var(--accent)]" /> Log Today
-            </button>
+      {/* Main Full-Width Content Container */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Header / Bar */}
+        <TopNav
+          currentView={currentView}
+          canGoBack={historyIndex > 0}
+          canGoForward={historyIndex < viewHistory.length - 1}
+          onGoBack={handleGoBack}
+          onGoForward={handleGoForward}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onNavigate={handleNavigate}
+          activeStudy={activeStudy}
+          allStudies={studies}
+          onSelectStudy={handleSelectStudy}
+          onCreateNewStudy={() => setIsCreateStudyOpen(true)}
+        />
 
-            {selectedEntryToEdit && (
-              <button
-                onClick={() => setActiveTab('log')}
-                className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs font-semibold rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 bg-[var(--accent-soft)] text-[var(--accent)] border-t border-l border-r border-[var(--accent)]/30 border-b-[var(--canvas)] -mb-px`}
-              >
-                <FileText className="w-3.5 h-3.5 text-[var(--accent)]" /> Editing Day {selectedEntryToEdit.dayNumber} (
-                {selectedEntryToEdit.date})
-              </button>
-            )}
-
-            {activeTab === 'report' && selectedReportEntry && (
-              <button
-                onClick={() => setActiveTab('report')}
-                className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs font-semibold rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] -mb-px`}
-              >
-                <FlaskConical className="w-3.5 h-3.5 text-[var(--accent)]" /> Daily Report: Day{' '}
-                {selectedReportEntry.dayNumber}
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                setSelectedEntryToEdit(null);
-                setActiveTab('history');
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 font-sans text-xs rounded-t-md focus:outline-none focus:ring-0 select-none transition-colors duration-150 -mb-px ${
-                activeTab === 'history'
-                  ? 'bg-[var(--surface)] text-[var(--accent)] border-t border-l border-r border-[var(--border-default)] border-b-[var(--surface)] font-semibold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] border border-transparent font-medium'
-              }`}
-            >
-              <ListFilter className="w-3.5 h-3.5 text-[var(--accent)]" /> Log & Trends ({filteredEntries.length})
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsSchemaEditorOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] text-[var(--text-primary)] border border-[var(--border-default)] text-xs font-sans font-medium rounded-md transition-colors self-start sm:self-auto mb-2 sm:mb-0"
-          >
-            <Sliders className="w-3.5 h-3.5 text-[var(--accent)]" /> Customize Protocol Structure
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'log' ? (
-          <div>
+        {/* Dynamic View Canvas */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto">
+          {/* Sync Banner */}
+          {userId && showSyncBanner && (
             <div className="mb-6">
-              <h2 className="text-2xl font-serif font-normal text-[var(--text-primary)]">
-                {selectedEntryToEdit
-                  ? `Edit Record: Day ${selectedEntryToEdit.dayNumber} (${selectedEntryToEdit.date})`
-                  : `Daily Observation Log: ${activeStudy.title}`}
-              </h2>
-              <p className="text-xs font-sans text-[var(--text-secondary)] mt-1 max-w-2xl">
-                Log your sleep & recovery parameters for this active study protocol. Data is synced to your account.
-              </p>
+              <SyncBanner
+                userId={userId}
+                onMigrationComplete={() => {
+                  setShowSyncBanner(false);
+                  refreshData(userId);
+                }}
+              />
             </div>
+          )}
 
-            <DailyLogForm
-              key={selectedEntryToEdit ? selectedEntryToEdit.id : `new-entry-${activeStudy.id}`}
-              initialEntry={selectedEntryToEdit}
-              studySchema={activeStudy.schema}
-              userId={userId}
-              onSaved={handleSavedEntry}
-              onCancel={selectedEntryToEdit ? () => setActiveTab('history') : undefined}
-              onOpenSchemaEditor={() => setIsSchemaEditorOpen(true)}
+          {currentView === 'home' && (
+            <HomeOverview
+              activeStudy={activeStudy}
+              entries={filteredEntries}
+              currentDayNumber={currentDayNumber > activeStudy.durationDays ? activeStudy.durationDays : currentDayNumber}
+              avgSleepFormatted={avgSleepFormatted}
+              avgRecoveryScore={avgRecoveryScore}
+              onNavigate={handleNavigate}
+              onSelectReport={handleSelectReport}
             />
-          </div>
-        ) : activeTab === 'report' && selectedReportEntry ? (
-          <DailyReport
-            initialMaximized={isReportMaximized}
-            entry={selectedReportEntry}
-            allEntries={filteredEntries}
-            studyConfig={{
-              id: activeStudy.id,
-              title: activeStudy.title,
-              startDate: activeStudy.startDate,
-              durationDays: activeStudy.durationDays,
-              schema: activeStudy.schema,
-            }}
-            exportEntries={exportEntries}
-            exportScopeLabel={exportScopeLabel}
-            onBackToHistory={() => setActiveTab('history')}
-            onEditEntry={handleSelectEntryForEdit}
-            onNavigateToEntry={handleNavigateReportEntry}
-            onOpenExportDialog={() => setIsExportDialogOpen(true)}
-          />
-        ) : (
-          <PreviousDaysList
-            entries={filteredEntries}
-            allStudies={studies}
-            activeStudyId={activeStudy.id}
-            userId={userId}
-            studyConfig={{
-              id: activeStudy.id,
-              title: activeStudy.title,
-              startDate: activeStudy.startDate,
-              durationDays: activeStudy.durationDays,
-              schema: activeStudy.schema,
-            }}
-            onSelectEntry={handleSelectEntryForEdit}
-            onViewReport={handleViewReport}
-            onReassignEntryStudy={handleReassignEntryStudy}
-            onEntriesChanged={() => refreshData(userId)}
-            onNewLogClick={handleStartNewLog}
-            onOpenExportDialog={() => setIsExportDialogOpen(true)}
-          />
-        )}
-      </main>
+          )}
 
-      {/* Auth Modal */}
+          {currentView === 'log' && (
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-6 border-b border-[var(--border-default)] pb-4">
+                <h1 className="text-2xl font-serif text-[var(--text-primary)]">
+                  Daily Observation Log: {activeStudy.title}
+                </h1>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Log your sleep & recovery parameters for this active study protocol. Data is synced to your account.
+                </p>
+              </div>
+
+              <DailyLogForm
+                key={`new-entry-${activeStudy.id}`}
+                initialEntry={null}
+                studySchema={activeStudy.schema}
+                userId={userId}
+                onSaved={handleSavedEntry}
+                onOpenSchemaEditor={() => setIsSchemaEditorOpen(true)}
+              />
+            </div>
+          )}
+
+          {currentView === 'edit-form' && selectedEntryToEdit && (
+            <div className="max-w-4xl mx-auto space-y-6 font-sans">
+              <div className="border-b border-[var(--border-default)] pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--warning-soft)] text-[var(--warning)] border border-[var(--warning)]/20">
+                      Editing Record
+                    </span>
+                  </div>
+                  <h1 className="text-2xl font-serif text-[var(--text-primary)]">
+                    Edit Record: Day {selectedEntryToEdit.dayNumber} ({selectedEntryToEdit.date})
+                  </h1>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Update parameter values and observation notes for this recorded date in {activeStudy.title}.
+                  </p>
+                </div>
+              </div>
+
+              <DailyLogForm
+                key={`edit-entry-${selectedEntryToEdit.id}`}
+                initialEntry={selectedEntryToEdit}
+                isDateLocked={true}
+                studySchema={activeStudy.schema}
+                userId={userId}
+                onSaved={handleSavedEntry}
+                onCancel={() => handleNavigate('history')}
+                onOpenSchemaEditor={() => setIsSchemaEditorOpen(true)}
+              />
+            </div>
+          )}
+
+          {currentView === 'history' && (
+            <PreviousDaysList
+              entries={filteredEntries}
+              allStudies={studies}
+              activeStudyId={activeStudy.id}
+              userId={userId}
+              studyConfig={{
+                id: activeStudy.id,
+                title: activeStudy.title,
+                startDate: activeStudy.startDate,
+                durationDays: activeStudy.durationDays,
+                schema: activeStudy.schema,
+              }}
+              onSelectEntry={handleSelectEntryForEdit}
+              onViewReport={handleSelectReport}
+              onReassignEntryStudy={handleReassignEntryStudy}
+              onEntriesChanged={() => refreshData(userId)}
+              onNewLogClick={() => handleNavigate('log')}
+              onOpenExportDialog={() => setIsExportDialogOpen(true)}
+            />
+          )}
+
+          {currentView === 'reports' && (
+            <ReportsView
+              entries={filteredEntries}
+              studyConfig={{
+                id: activeStudy.id,
+                title: activeStudy.title,
+                startDate: activeStudy.startDate,
+                durationDays: activeStudy.durationDays,
+                schema: activeStudy.schema,
+              }}
+              onSelectReport={handleSelectReport}
+            />
+          )}
+
+          {currentView === 'edit' && (
+            <EditRecordsView
+              entries={filteredEntries}
+              studyConfig={{
+                id: activeStudy.id,
+                title: activeStudy.title,
+                startDate: activeStudy.startDate,
+                durationDays: activeStudy.durationDays,
+                schema: activeStudy.schema,
+              }}
+              onSelectEntryToEdit={handleSelectEntryForEdit}
+            />
+          )}
+
+          {currentView === 'export' && (
+            <ExportView
+              entries={filteredEntries}
+              studyConfig={{
+                id: activeStudy.id,
+                title: activeStudy.title,
+                startDate: activeStudy.startDate,
+                durationDays: activeStudy.durationDays,
+                schema: activeStudy.schema,
+              }}
+              onTriggerExport={handleTriggerExport}
+            />
+          )}
+
+          {currentView === 'report-detail' && selectedReportEntry && (
+            <DailyReport
+              initialMaximized={false}
+              entry={selectedReportEntry}
+              allEntries={filteredEntries}
+              studyConfig={{
+                id: activeStudy.id,
+                title: activeStudy.title,
+                startDate: activeStudy.startDate,
+                durationDays: activeStudy.durationDays,
+                schema: activeStudy.schema,
+              }}
+              exportEntries={exportEntries}
+              exportScopeLabel={exportScopeLabel}
+              onBackToHistory={() => handleNavigate('reports')}
+              onEditEntry={handleSelectEntryForEdit}
+              onNavigateToEntry={handleNavigateReportEntry}
+              onOpenExportDialog={() => handleNavigate('export')}
+            />
+          )}
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-[var(--border-default)] bg-[var(--canvas)] py-4 mt-auto transition-colors duration-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--text-tertiary)] gap-2">
+            <div>SleepLab N=1 Longitudinal Study ({activeStudy.title})</div>
+            <div>{userId && userEmail ? `Synced with Supabase (@${userEmail.split('@')[0]})` : 'Offline / Local Persistence'}</div>
+          </div>
+        </footer>
+      </div>
+
+      {/* Modals */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -446,7 +552,6 @@ export const Dashboard: React.FC = () => {
         }}
       />
 
-      {/* Create New Study Protocol Modal */}
       <CreateStudyModal
         isOpen={isCreateStudyOpen}
         userId={userId}
@@ -454,7 +559,6 @@ export const Dashboard: React.FC = () => {
         onStudyCreated={handleStudyCreated}
       />
 
-      {/* Study Settings Protocol Modal */}
       <StudySettingsModal
         isOpen={isStudySettingsOpen}
         config={{
@@ -468,7 +572,6 @@ export const Dashboard: React.FC = () => {
         onSave={handleSaveStudyConfig}
       />
 
-      {/* Protocol Schema Editor Modal */}
       <ProtocolSchemaEditorModal
         isOpen={isSchemaEditorOpen}
         study={activeStudy}
@@ -476,7 +579,6 @@ export const Dashboard: React.FC = () => {
         onSaveSchema={handleSaveSchema}
       />
 
-      {/* Flexible Export PDF Dialog */}
       <ExportDialog
         isOpen={isExportDialogOpen}
         entries={filteredEntries}
@@ -491,15 +593,49 @@ export const Dashboard: React.FC = () => {
         onClose={() => setIsExportDialogOpen(false)}
         onExport={handleTriggerExport}
       />
-
-      {/* Editorial Footer */}
-      <footer className="border-t border-[var(--border-default)] bg-[var(--canvas)] py-5 mt-auto transition-colors duration-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs font-sans text-[var(--text-tertiary)] gap-2">
-          <div>SleepLab N=1 Longitudinal Study Protocol ({activeStudy.title})</div>
-          <div>{userId && userEmail ? `Synced with Supabase (@${userEmail.split('@')[0]})` : 'Offline / Local Persistence'}</div>
-        </div>
-      </footer>
+      {/* Dedicated Scientific Print / PDF Presentation Container */}
+      {isMounted &&
+        createPortal(
+          <div className="hidden print:block font-sans text-paper-900 space-y-4">
+            {exportEntries && exportEntries.length > 0 ? (
+              exportEntries.map((expEntry, index) => (
+                <React.Fragment key={expEntry.id || expEntry.date}>
+                  {index > 0 && <div className="print-page-break" />}
+                  <SingleReportPrint
+                    entry={expEntry}
+                    studyConfig={{
+                      id: activeStudy.id,
+                      title: activeStudy.title,
+                      startDate: activeStudy.startDate,
+                      durationDays: activeStudy.durationDays,
+                      schema: activeStudy.schema,
+                    }}
+                    isFirstReport={index === 0}
+                    totalExportCount={exportEntries.length}
+                    exportScopeLabel={exportScopeLabel}
+                    viewMode="tree"
+                  />
+                </React.Fragment>
+              ))
+            ) : selectedReportEntry ? (
+              <SingleReportPrint
+                entry={selectedReportEntry}
+                studyConfig={{
+                  id: activeStudy.id,
+                  title: activeStudy.title,
+                  startDate: activeStudy.startDate,
+                  durationDays: activeStudy.durationDays,
+                  schema: activeStudy.schema,
+                }}
+                isFirstReport={true}
+                totalExportCount={1}
+                exportScopeLabel={exportScopeLabel}
+                viewMode="tree"
+              />
+            ) : null}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
-

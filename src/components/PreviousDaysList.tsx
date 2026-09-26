@@ -265,14 +265,6 @@ export const PreviousDaysList: React.FC<PreviousDaysListProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {onOpenExportDialog && (
-            <button
-              onClick={onOpenExportDialog}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5 text-[var(--accent)]" /> Export Combined PDF
-            </button>
-          )}
           <span className="text-xs text-[var(--text-secondary)] bg-[var(--surface-raised)] px-2.5 py-1.5 rounded-full border border-[var(--border-default)]">
             {entries.length} of {studyConfig?.durationDays || 30} Days Logged
           </span>

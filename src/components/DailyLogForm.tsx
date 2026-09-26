@@ -50,6 +50,7 @@ import {
 interface DailyLogFormProps {
   initialMaximized?: boolean;
   initialEntry?: DailyEntry | null;
+  isDateLocked?: boolean;
   studySchema?: StudySchema;
   userId?: string | null;
   onSaved: (savedEntry: DailyEntry) => void;
@@ -76,6 +77,7 @@ const ALL_CONFOUNDERS: ConfoundingFactor[] = [
 export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   initialMaximized,
   initialEntry,
+  isDateLocked,
   studySchema,
   userId,
   onSaved,
@@ -170,7 +172,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       try {
         const saved = localStorage.getItem('sleeplab_form_collapsed_sections');
         if (saved) return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return {};
   });
@@ -184,7 +186,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('sleeplab_form_collapsed_sections', JSON.stringify(updated));
-        } catch (e) {}
+        } catch (e) { }
       }
       return updated;
     });
@@ -286,7 +288,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
     { afternoonEnergy, focus, afternoonSlump }
   );
 
-  
+
   // All ordered category IDs for Focus Mode navigation
   const allCategoryIds = [
     'sleep',
@@ -334,16 +336,16 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
   const renderMetricItem = (m: StudyMetric, depth: number = 0): React.ReactNode => {
     const val =
       m.id === 'morningAlertness' ? morningAlertness :
-      m.id === 'sleepInertia' ? sleepInertia :
-      m.id === 'mood' ? mood :
-      m.id === 'motivation' ? motivation :
-      m.id === 'skinHealth' ? skinHealth :
-      m.id === 'muscleFullness' ? muscleFullness :
-      m.id === 'workoutEnergy' ? workoutEnergy :
-      m.id === 'bodyFreshness' ? bodyFreshness :
-      m.id === 'afternoonEnergy' ? afternoonEnergy :
-      m.id === 'focus' ? focus :
-      metricsData[m.id];
+        m.id === 'sleepInertia' ? sleepInertia :
+          m.id === 'mood' ? mood :
+            m.id === 'motivation' ? motivation :
+              m.id === 'skinHealth' ? skinHealth :
+                m.id === 'muscleFullness' ? muscleFullness :
+                  m.id === 'workoutEnergy' ? workoutEnergy :
+                    m.id === 'bodyFreshness' ? bodyFreshness :
+                      m.id === 'afternoonEnergy' ? afternoonEnergy :
+                        m.id === 'focus' ? focus :
+                          metricsData[m.id];
 
     const isMuted = mutedMetrics.includes(m.id);
 
@@ -457,11 +459,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                         : [...selectedList, opt];
                       handleValChange(next);
                     }}
-                    className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${
-                      isSelected
-                        ? 'bg-[var(--accent)] text-white border-transparent'
-                        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-sans transition-colors border ${isSelected
+                      ? 'bg-[var(--accent)] text-white border-transparent'
+                      : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -484,11 +485,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                     key={opt}
                     type="button"
                     onClick={() => handleValChange(isSelected ? '' : opt)}
-                    className={`px-3 py-1 rounded-full text-xs font-sans transition-all border flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-[var(--accent)] text-white border-transparent shadow-xs font-medium'
-                        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-sans transition-all border flex items-center gap-1.5 ${isSelected
+                      ? 'bg-[var(--accent)] text-white border-transparent shadow-xs font-medium'
+                      : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                      }`}
                   >
                     <span className={`w-2 h-2 rounded-full border ${isSelected ? 'bg-white border-white' : 'border-[var(--text-tertiary)]'}`} />
                     {opt}
@@ -628,9 +628,16 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 type="date"
                 required
                 value={date}
+                disabled={isDateLocked}
                 onChange={(e) => setDate(e.target.value)}
-                className="border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent-soft)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
+                className={`border border-[var(--border-default)] rounded-md px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--accent-soft)] bg-[var(--surface-raised)] text-[var(--text-primary)] ${isDateLocked ? 'opacity-70 cursor-not-allowed bg-[var(--border-default)]/20' : ''
+                  }`}
               />
+              {isDateLocked && (
+                <span className="text-[10px] font-semibold text-[var(--warning)] bg-[var(--warning-soft)] px-2 py-1 rounded-md border border-[var(--warning)]/30">
+                  Fixed Date (Locked)
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setIsFormMaximized((prev) => !prev)}
@@ -653,7 +660,7 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           {isEditingExisting && (
             <div className="flex items-center gap-2 bg-[var(--warning-soft)] text-[var(--warning)] px-3 py-2 rounded-md text-xs font-sans">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>Existing record loaded for this date. Submitting will update this record.</span>
+              <span>Submitting will update existing record for this date</span>
             </div>
           )}
         </div>
@@ -906,11 +913,10 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
                 return (
                   <label
                     key={item}
-                    className={`flex items-center gap-2 p-2.5 rounded-md border text-xs font-sans cursor-pointer transition-colors ${
-                      isChecked
-                        ? 'bg-[var(--accent)] text-white border-transparent font-medium'
-                        : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`flex items-center gap-2 p-2.5 rounded-md border text-xs font-sans cursor-pointer transition-colors ${isChecked
+                      ? 'bg-[var(--accent)] text-white border-transparent font-medium'
+                      : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -1020,194 +1026,193 @@ export const DailyLogForm: React.FC<DailyLogFormProps> = ({
           )}
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white font-sans font-medium text-xs rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 bg-[var(--accent)] text-white font-sans font-medium text-xs rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm cursor-pointer"
           >
-            <Save className="w-4 h-4" /> Save Daily Entry
+            <Save className="w-4 h-4" /> {isDateLocked || isEditingExisting ? 'Save Changes' : 'Save Daily Entry'}
           </button>
         </div>
-      {/* CATEGORY FOCUS / MAXIMIZE OVERLAY */}
-      {maximizedCategoryId && isMounted && createPortal(
-        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-[var(--canvas)] p-4 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200">
-          <div className="w-full space-y-6">
-            {/* Focus Bar */}
-            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-                  <Sparkles className="w-5 h-5" />
+        {/* CATEGORY FOCUS / MAXIMIZE OVERLAY */}
+        {maximizedCategoryId && isMounted && createPortal(
+          <div className="fixed inset-0 z-[9999] w-screen h-screen bg-[var(--canvas)] p-4 md:p-8 overflow-y-auto font-sans text-[var(--text-primary)] transition-all duration-200">
+            <div className="w-full space-y-6">
+              {/* Focus Bar */}
+              <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] font-semibold block">
+                      Focused Category Workspace
+                    </span>
+                    <h3 className="font-serif text-lg font-medium text-[var(--text-primary)]">
+                      {getFocusedCategoryTitle(maximizedCategoryId)}
+                    </h3>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] font-semibold block">
-                    Focused Category Workspace
-                  </span>
-                  <h3 className="font-serif text-lg font-medium text-[var(--text-primary)]">
-                    {getFocusedCategoryTitle(maximizedCategoryId)}
-                  </h3>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={!canNavigatePrevCategory}
+                    onClick={handleNavigatePrevCategory}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Previous Category
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canNavigateNextCategory}
+                    onClick={handleNavigateNextCategory}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
+                  >
+                    Next Category <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMaximizedCategoryId(null)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium rounded-md transition-colors shadow-xs"
+                  >
+                    <Minimize2 className="w-4 h-4" /> Exit Focus Mode
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  disabled={!canNavigatePrevCategory}
-                  onClick={handleNavigatePrevCategory}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" /> Previous Category
-                </button>
-                <button
-                  type="button"
-                  disabled={!canNavigateNextCategory}
-                  onClick={handleNavigateNextCategory}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-medium rounded-md disabled:opacity-30 transition-colors"
-                >
-                  Next Category <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMaximizedCategoryId(null)}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium rounded-md transition-colors shadow-xs"
-                >
-                  <Minimize2 className="w-4 h-4" /> Exit Focus Mode
-                </button>
-              </div>
-            </div>
-
-            {/* Focused Content Container */}
-            <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-6 shadow-sm space-y-4">
-              <div className="text-xs text-[var(--text-secondary)] border-b border-[var(--border-default)] pb-3 font-medium">
-                Showing all observations and branching logic for category: <strong className="text-[var(--text-primary)]">&quot;{getFocusedCategoryTitle(maximizedCategoryId)}&quot;</strong>
-              </div>
-
-              {/* Render Focused Content */}
-              {maximizedCategoryId === 'sleep' && (
-                <div className="space-y-5 pt-2">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                        Lights Out Time
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={lightsOut}
-                        onChange={(e) => setLightsOut(e.target.value)}
-                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-                      />
-                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                        Estimated Sleep Time
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={estimatedSleepTime}
-                        onChange={(e) => setEstimatedSleepTime(e.target.value)}
-                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-                      />
-                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                        Natural / Final Wake Time
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={naturalWakeTime}
-                        onChange={(e) => setNaturalWakeTime(e.target.value)}
-                        className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
-                      />
-                      <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-[var(--surface)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[var(--accent)]" />
-                      <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
-                        Estimated Total Sleep Duration:
-                      </span>
-                    </div>
-                    <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
-                      {calculatedMetrics.totalSleepFormatted}
-                      <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
-                        ({calculatedMetrics.totalSleepMinutes} minutes)
-                      </span>
-                    </div>
-                  </div>
+              {/* Focused Content Container */}
+              <div className="bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-xl p-6 shadow-sm space-y-4">
+                <div className="text-xs text-[var(--text-secondary)] border-b border-[var(--border-default)] pb-3 font-medium">
+                  Showing all observations and branching logic for category: <strong className="text-[var(--text-primary)]">&quot;{getFocusedCategoryTitle(maximizedCategoryId)}&quot;</strong>
                 </div>
-              )}
 
-              {maximizedCategoryId === 'confounders' && (
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-[var(--border-default)]">
-                    <span className="text-xs font-medium text-[var(--text-secondary)]">Select Confounding Factors</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsConfounderModalOpen(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] rounded-md text-[var(--text-primary)] transition-colors"
-                    >
-                      <Settings className="w-3.5 h-3.5 text-[var(--accent)]" /> Customize Confounders List
-                    </button>
+                {/* Render Focused Content */}
+                {maximizedCategoryId === 'sleep' && (
+                  <div className="space-y-5 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                          Lights Out Time
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={lightsOut}
+                          onChange={(e) => setLightsOut(e.target.value)}
+                          className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                        />
+                        <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you got into bed & turned lights off.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                          Estimated Sleep Time
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={estimatedSleepTime}
+                          onChange={(e) => setEstimatedSleepTime(e.target.value)}
+                          className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                        />
+                        <p className="text-[11px] text-[var(--text-tertiary)] mt-1">Estimated time you fell asleep.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                          Natural / Final Wake Time
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={naturalWakeTime}
+                          onChange={(e) => setNaturalWakeTime(e.target.value)}
+                          className="w-full border border-[var(--border-default)] rounded-md px-3 py-2 text-xs font-sans bg-[var(--surface)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-soft)] focus:border-[var(--border-strong)]"
+                        />
+                        <p className="text-[11px] text-[var(--text-tertiary)] mt-1">When you woke up to start your day.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-[var(--surface)] border border-[var(--border-default)] rounded-md p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-[var(--accent)]" />
+                        <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+                          Estimated Total Sleep Duration:
+                        </span>
+                      </div>
+                      <div className="text-sm font-sans font-semibold text-[var(--text-primary)]">
+                        {calculatedMetrics.totalSleepFormatted}
+                        <span className="text-xs font-normal text-[var(--text-tertiary)] ml-2">
+                          ({calculatedMetrics.totalSleepMinutes} minutes)
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {confounderOptions.map((conf) => {
-                      const isSelected = confounders.includes(conf);
-                      return (
-                        <button
-                          key={conf}
-                          type="button"
-                          onClick={() => {
-                            setConfounders((prev) =>
-                              prev.includes(conf) ? prev.filter((c) => c !== conf) : [...prev, conf]
-                            );
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-sans transition-colors border ${
-                            isSelected
+                )}
+
+                {maximizedCategoryId === 'confounders' && (
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-[var(--border-default)]">
+                      <span className="text-xs font-medium text-[var(--text-secondary)]">Select Confounding Factors</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfounderManagerOpen(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[var(--surface)] hover:bg-[var(--border-default)] border border-[var(--border-default)] rounded-md text-[var(--text-primary)] transition-colors"
+                      >
+                        <Settings className="w-3.5 h-3.5 text-[var(--accent)]" /> Customize Confounders List
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {confounderOptions.map((conf) => {
+                        const isSelected = confounders.includes(conf);
+                        return (
+                          <button
+                            key={conf}
+                            type="button"
+                            onClick={() => {
+                              setConfounders((prev) =>
+                                prev.includes(conf) ? prev.filter((c) => c !== conf) : [...prev, conf]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-sans transition-colors border ${isSelected
                               ? 'bg-[var(--accent)] text-white border-transparent shadow-xs font-medium'
                               : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:text-[var(--text-primary)]'
-                          }`}
-                        >
-                          {conf}
-                        </button>
-                      );
-                    })}
+                              }`}
+                          >
+                            {conf}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {maximizedCategoryId !== 'sleep' && maximizedCategoryId !== 'confounders' && (
-                <div className="pt-2 space-y-4">
-                  {(() => {
-                    const catMetrics = effectiveSchema.metrics
-                      .filter((m) => m.categoryId === maximizedCategoryId && m.active !== false)
-                      .sort((a, b) => a.order - b.order);
+                {maximizedCategoryId !== 'sleep' && maximizedCategoryId !== 'confounders' && (
+                  <div className="pt-2 space-y-4">
+                    {(() => {
+                      const catMetrics = effectiveSchema.metrics
+                        .filter((m) => m.categoryId === maximizedCategoryId && m.active !== false)
+                        .sort((a, b) => a.order - b.order);
 
-                    if (catMetrics.length === 0) {
+                      if (catMetrics.length === 0) {
+                        return (
+                          <p className="text-xs text-[var(--text-tertiary)] italic">
+                            No active metrics in this category.
+                          </p>
+                        );
+                      }
+
                       return (
-                        <p className="text-xs text-[var(--text-tertiary)] italic">
-                          No active metrics in this category.
-                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {catMetrics.map((m) => renderMetricItem(m, 0))}
+                        </div>
                       );
-                    }
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {catMetrics.map((m) => renderMetricItem(m, 0))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
       </form>
 
       {/* CONFOUNDER MANAGER MODAL */}

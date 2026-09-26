@@ -91,6 +91,17 @@ export const SingleReportPrint: React.FC<SingleReportPrintProps> = ({
 
       {/* PAGE 1: MANDATORY EXPERIMENTAL CORE SECTIONS */}
       <div className="space-y-3.5">
+        {/* PROMINENT DAY BANNER */}
+        <div className="bg-[#2b2a26] text-white px-3 py-2 rounded flex items-center justify-between font-mono text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="flex items-center gap-2">
+            <span className="bg-[#c96442] text-white px-2 py-0.5 rounded font-extrabold text-xs">
+              DAY {entry.dayNumber}
+            </span>
+            <span>OBSERVATION REPORT</span>
+          </div>
+          <span className="text-[10px] text-gray-300 font-normal">{entry.date} ({formatDateTitle(entry.date)})</span>
+        </div>
+
         {/* PRINT DOCUMENT HEADER */}
         <header className="border-b-2 border-paper-900 pb-2 space-y-0.5">
           <div className="flex justify-between items-baseline text-[9px] font-mono uppercase tracking-widest text-academic-slate">

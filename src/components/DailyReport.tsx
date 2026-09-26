@@ -177,37 +177,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({
           </button>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {prevEntry ? (
-              <button
-                onClick={() => onNavigateToEntry(prevEntry)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans rounded-md transition-colors"
-                title={`View Day ${prevEntry.dayNumber} (${prevEntry.date})`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Day {prevEntry.dayNumber}
-              </button>
-            ) : (
-              <span className="px-3 py-1.5 text-xs font-sans text-[var(--text-tertiary)] border border-[var(--border-default)] rounded-md cursor-not-allowed">
-                ← First Day
-              </span>
-            )}
-
-            <span className="text-xs font-sans text-[var(--text-secondary)] px-1">
-              Day {entry.dayNumber} of {sortedEntries.length}
-            </span>
-
-            {nextEntry ? (
-              <button
-                onClick={() => onNavigateToEntry(nextEntry)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans rounded-md transition-colors"
-                title={`View Day ${nextEntry.dayNumber} (${nextEntry.date})`}
-              >
-                Day {nextEntry.dayNumber} <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <span className="px-3 py-1.5 text-xs font-sans text-[var(--text-tertiary)] border border-[var(--border-default)] rounded-md cursor-not-allowed">
-                Latest Day →
-              </span>
-            )}
 
             {/* View Mode Toggle: Tree vs Table */}
             <div className="flex items-center bg-[var(--surface-raised)] border border-[var(--border-default)] p-0.5 rounded-md text-xs font-sans font-medium mr-2">
@@ -238,16 +207,9 @@ export const DailyReport: React.FC<DailyReportProps> = ({
             </div>
 
             <button
-              onClick={onOpenExportDialog || handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors"
-            >
-              <Printer className="w-4 h-4 text-[var(--accent)]" /> Export PDF Report
-            </button>
-
-            <button
               type="button"
               onClick={() => setIsMaximized((prev) => !prev)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors cursor-pointer"
               title={isMaximized ? 'Restore View' : 'Maximize Fullscreen Report'}
             >
               {isMaximized ? (
@@ -259,12 +221,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({
                   <Maximize2 className="w-3.5 h-3.5 text-[var(--accent)]" /> Maximize Report
                 </>
               )}
-            </button>
-            <button
-              onClick={() => onEditEntry(entry, isMaximized)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-sans font-medium rounded-md transition-colors shadow-sm"
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Edit Record
             </button>
           </div>
         </div>
@@ -681,58 +637,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({
             <div>Subjective Research Observations</div>
           </footer>
         </article>
-
-        {/* Bottom Action Footer */}
-        <div className="flex items-center justify-between bg-[var(--surface)] p-4 rounded-lg border border-[var(--border-default)] no-print">
-          <button
-            onClick={onBackToHistory}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-sans text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            <ChevronLeft className="w-4 h-4" /> Back to History List
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenExportDialog || handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[var(--surface-raised)] hover:bg-[var(--border-default)] border border-[var(--border-default)] text-[var(--text-primary)] text-xs font-sans font-medium rounded-md transition-colors"
-            >
-              <Printer className="w-4 h-4 text-[var(--accent)]" /> Export PDF Report
-            </button>
-            <button
-              onClick={() => onEditEntry(entry, isMaximized)}
-              className="flex items-center gap-2 px-5 py-2 bg-[var(--accent)] text-white text-xs font-sans font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors shadow-sm"
-            >
-              <Edit3 className="w-4 h-4" /> Edit Day {entry.dayNumber} Record
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. DEDICATED SCIENTIFIC PRINT / PDF PRESENTATION */}
-      <div className="hidden print:block font-sans text-paper-900 space-y-4">
-        {exportEntries && exportEntries.length > 0 ? (
-          exportEntries.map((expEntry, index) => (
-            <React.Fragment key={expEntry.id || expEntry.date}>
-              {index > 0 && <div className="print-page-break" />}
-              <SingleReportPrint
-                entry={expEntry}
-                studyConfig={studyConfig}
-                isFirstReport={index === 0}
-                totalExportCount={exportEntries.length}
-                exportScopeLabel={exportScopeLabel}
-                viewMode={viewMode}
-              />
-            </React.Fragment>
-          ))
-        ) : (
-          <SingleReportPrint
-            entry={entry}
-            studyConfig={studyConfig}
-            isFirstReport={true}
-            totalExportCount={1}
-            exportScopeLabel={exportScopeLabel}
-            viewMode={viewMode}
-          />
-        )}
       </div>
     </div>
   );

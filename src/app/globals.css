@@ -152,20 +152,33 @@ select option {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Hide root React layout container when printing */
+  body > div:not(.print\:block) {
+    display: none !important;
   }
 
   /* Hide interactive web components when printing */
   .no-print,
   button,
-  header.border-b,
-  footer.border-t,
+  header,
+  footer,
+  aside,
+  main,
   .print\:hidden {
     display: none !important;
   }
 
-  /* Show dedicated print document layout */
+  /* Show dedicated print document layout at top level */
   .print\:block {
     display: block !important;
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Ensure background colors & borders render accurately in grayscale printing */
